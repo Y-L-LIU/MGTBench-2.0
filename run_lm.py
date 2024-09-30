@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--best', type=float, help='the current best f1 for the data and detectLLM', default=1)
     parser.add_argument('--folder', type=str, required=True)
     parser.add_argument('--match_data', type=lambda x: (str(x).lower() == 'true'), default=False)
+    parser.add_argument('--ratio', help='MGT:Human ratio', type=float, default=1.0)
     parser.add_argument('--eval', action='store_true')
     args = parser.parse_args()
 
@@ -44,6 +45,7 @@ if __name__ == '__main__':
     best = args.best
     folder = args.folder
     match_data = args.match_data
+    ratio = args.ratio
     eval = args.eval
 
     if args.model == 'bert':
@@ -59,7 +61,7 @@ if __name__ == '__main__':
         metric1 = AutoDetector.from_detector_name('LM-D', model_name_or_path=model_name)
         metric1.model = AutoModelForSequenceClassification.from_pretrained(f'/data1/zzy/finetuned/{datatype}_{llmname}_{task}{match_tag}_{args.model}').to('cuda')
         experiment = AutoExperiment.from_experiment_name('supervised',detector=[metric1])
-        data = load(datatype, llmname, cut_length=cut_length, task=task, match=match_data)
+        data = load(datatype, llmname, cut_length=cut_length, task=task, match=match_data, ratio=ratio)
         experiment.load_data(data)
         res = experiment.launch(need_finetune=False)
         print('----------')
@@ -67,6 +69,7 @@ if __name__ == '__main__':
         print('DetectLLM:', llmname)
         print('Task:', task)
         print('Match data:', match_data)
+        print('Ratio:', ratio)
         print('Model:', args.model)
         print(res[0].train)
         print(res[0].test)
@@ -79,17 +82,14 @@ if __name__ == '__main__':
     output_path = f'./{folder}/{datatype}_{llmname}.txt' # one file for each subject
 
     print(f"------ Running {datatype} and model {llmname} with seed {seed}, cut_length {cut_length}, data_size {size} ------")
-    # with open(output_path, "a") as file:
-    #     print(f"------ Running {datatype} and model {llmname} with seed {seed}, cut_length {cut_length}, data_size {size} ------", file=file)
 
     setup_seed(seed)
-
     torch.cuda.empty_cache()
 
     metric1 = AutoDetector.from_detector_name('LM-D', model_name_or_path=model_name)
     experiment = AutoExperiment.from_experiment_name('supervised',detector=[metric1])
 
-    data = load(datatype, llmname, cut_length=cut_length, task=task, match=match_data)
+    data = load(datatype, llmname, cut_length=cut_length, task=task, match=match_data, ratio=ratio)
     data['train']['text'] = data['train']['text'][:size]
     data['train']['label'] = data['train']['label'][:size]
     # given size may be larger than the maximum length of the dataset, record the maximum length
@@ -102,10 +102,6 @@ if __name__ == '__main__':
     res = experiment.launch(**config)
     print(res[0].train)
     print(res[0].test)
-    # with open(output_path, "a") as file:
-    #     print(res[0].train, file=file)
-    #     print(res[0].test, file=file)
-    #     print('\n', file=file)
 
     # serialize the train and test Metric object
     temp = {'cut_length': cut_length,

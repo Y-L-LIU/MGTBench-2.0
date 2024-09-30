@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--save', type=lambda x: (str(x).lower() == 'true'), default=False)
     parser.add_argument('--previous_best', type=lambda x: (str(x).lower() == 'true'), default=False)
     parser.add_argument('--match_data', type=lambda x: (str(x).lower() == 'true'), default=False)
-    parser.add_argument('--gpu', type=int, default=2)
+    parser.add_argument('--ratio', help='MGT:Human ratio', type=float, default=1.0)
     args = parser.parse_args()
 
     which_task = args.task
@@ -44,9 +44,8 @@ if __name__ == '__main__':
     model = args.model
     save = args.save
     match_data = args.match_data
+    ratio = args.ratio
     previous_best = args.previous_best
-
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(args.gpu)
     
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -80,6 +79,7 @@ if __name__ == '__main__':
     results['task'] = which_task
     results['model'] = model
     results['match'] = match_data
+    results['ratio'] = ratio
     for cat in category:
         for llm in llms:
             results[cat] = {llm: []}
@@ -102,7 +102,9 @@ if __name__ == '__main__':
                                     f'--task {which_task} ' \
                                     f'--best {best_f1[cat][detectLLM]} ' \
                                     f'--folder {folder} ' \
-                                    f'--match_data {match_data} '
+                                    f'--match_data {match_data} ' \
+                                    f'--ratio {ratio} '
+                        
                         subprocess.run(command, shell=True)
                         time.sleep(1)
                         cnt += 1
@@ -124,6 +126,7 @@ if __name__ == '__main__':
                                             'detectLLM': detectLLM,
                                             'model': model,
                                             'match': match_data,
+                                            'ratio': ratio,
                                             'results': results[cat][detectLLM]
                                             }
                             with open(f'{folder}/{cat}_{detectLLM}.json', 'w') as f:
@@ -132,9 +135,17 @@ if __name__ == '__main__':
                         # check f1 to decide whether to save the best hyperparameters
                         cur_f1 = round(temp['test']['f1'], 4)
                         if cur_f1 > best_f1[cat][detectLLM]:
+                            print(f'Previous best f1: {best_f1[cat][detectLLM]}')
+                            print(f'New best f1: {cur_f1}',)
                             best_f1[cat][detectLLM] = cur_f1
                             # num data may exceed the actual max data length, record the actual one from experiment.json
-                            best_hyperparams[cat][detectLLM] = {'model': model, 'seed': seed, 'cut_length': cut_length, 'num_data': temp['data_size'], 'f1': cur_f1}
+                            best_hyperparams[cat][detectLLM] = {'model': model, 
+                                                                'seed': seed, 
+                                                                'cut_length': cut_length, 
+                                                                'num_data': temp['data_size'], 
+                                                                'match': match_data,
+                                                                'ratio': ratio,
+                                                                'f1': cur_f1}
 
                             with open(f'{which_task}_best/best_f1{match_tag}.json', 'w') as f:
                                 json.dump(best_f1, f)
@@ -147,6 +158,7 @@ if __name__ == '__main__':
                             'detectLLM': detectLLM,
                             'model': model,
                             'match': match_data,
+                            'ratio': ratio,
                             'results': results[cat][detectLLM]
                             }
             with open(f'{folder}/{cat}_{detectLLM}.json', 'w') as f:
