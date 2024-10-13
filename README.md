@@ -26,6 +26,15 @@ Currently, we support the following methods (continuous updating):
 
 - [AITextDetect](https://huggingface.co/AITextDetect)
 
+It contains human written and AI polished text in different categories, including:
+- STEM (Physics, Math, Computer, Biology, Chemistry, Electrical, Medicine, Statistics)
+- Social Sciences (Education, Management, Economy and Finance)
+- Humanities (Art, History, Literature, Philosophy, Law)
+
+From [wiki](https://en.wikipedia.org/wiki/Main_Page), [arxiv](https://arxiv.org/), and [Gutenberg](https://www.gutenberg.org/)
+
+
+
 To check the dataset:
 ```python
 from datasets import load_dataset
