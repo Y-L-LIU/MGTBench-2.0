@@ -1,6 +1,6 @@
-# MGTBench
+# MGTBench 2.0
 
-MGTBench provides the reference implementations of different machine-generated text (MGT) detection methods.
+MGTBench2.0 provides the reference implementations of different machine-generated text (MGT) detection methods.
 It is still under continuous development and we will include more detection methods as well as analysis tools in the future.
 
 
@@ -23,44 +23,76 @@ Currently, we support the following methods (continuous updating):
     - LM Detector [[Ref]](https://arxiv.org/abs/1911.00650);
 
 ## Supported Datasets
-- Essay;
-- WP;
-- Reuters; 
 
-Note that our datasets are constructed based on [Verma et al.](https://arxiv.org/abs/2305.15047), you can download them from [Google Drive](https://drive.google.com/drive/folders/1p4iBeM4r-sUKe8TnS4DcYlxvQagcmola?usp=sharing).
+- [AITextDetect](https://huggingface.co/AITextDetect)
 
-## Installation
+It contains human written and AI polished text in different categories, including:
+- STEM (Physics, Math, Computer, Biology, Chemistry, Electrical, Medicine, Statistics)
+- Social Sciences (Education, Management, Economy and Finance)
+- Humanities (Art, History, Literature, Philosophy, Law)
+
+From [wiki](https://en.wikipedia.org/wiki/Main_Page), [arxiv](https://arxiv.org/), and [Gutenberg](https://www.gutenberg.org/)
+
+
+
+To check the dataset:
+```python
+from datasets import load_dataset
+# ai polished
+polish = load_dataset("AITextDetect/AI_Polish_clean",
+                      name='gpt35',
+                      split='Math',
+                      trust_remote_code=True
+                    )
+
+# human written
+human = load_dataset("AITextDetect/HUMAN-Clean",
+                     trust_remote_code=True
+                     )
 ```
-git clone https://github.com/xinleihe/MGTBench.git;
-cd MGTBench;
+
+## Quick Start
+
+### Installation
+```
+git clone -b release https://github.com/Y-L-LIU/MGTBench-2.0
+cd MGTBench-2.0
 conda env create -f environment.yml;
-conda activate MGTBench;
+conda activate mgtbench2;
 ```
+
+
+Check out [`demo.ipynb`](demo.ipynb) for a quick start.
+```python
+from mgtbench import AutoDetector, AutoExperiment
+from mgtbench.loading.dataloader import load
+
+model_name_or_path = '/data1/zzy/gpt2-medium'
+metric = AutoDetector.from_detector_name('ll', 
+                                            model_name_or_path=model_name_or_path)
+experiment = AutoExperiment.from_experiment_name('threshold',detector=[metric])
+
+data_name = 'AITextDetect'
+detectLLM = 'gpt35'
+category = 'Art'
+data = load(data_name, detectLLM, category)
+experiment.load_data(data)
+res = experiment.launch()
+
+print('train:', res[0].train)
+print('test:', res[0].test)
+```
+
 
 ## Usage
-To run the benchmark on the Essay dataset: 
-```
-# Distinguish Human vs. Claude:
-python benchmark.py --dataset Essay --detectLLM Claude --method Log-Likelihood
+To run the benchmark on the `AITextDetect` dataset: 
+```bash
+# specify the model with local path to your model, or model name on huggingface
 
-# Text attribution:
-python attribution_benchmark.py --dataset Essay
+# distinguish Human vs. Llama3 using LM-D detector
+python benchmark.py --detectLLM Llama3 --method LM-D --model /data1/models/distilbert-base-uncased
+
+# distinguish Human vs. gpt3.5 using log-likelihood detector
+python benchmark.py --detectLLM gpt35 --method ll --model /data1/zzy/gpt2-medium
 ```
 Note that you can also specify your own datasets on ``dataset_loader.py``.
-
-
-## Authors
-The tool is designed and developed by Xinlei He (CISPA), Xinyue Shen (CISPA), Zeyuan Chen (Individual Researcher), Michael Backes (CISPA), and Yang Zhang (CISPA).
-
-## Cite
-If you use MGTBench for your research, please cite [MGTBench: Benchmarking Machine-Generated Text Detection](https://arxiv.org/abs/2303.14822).
-
-```
-bibtex
-@article{HSCBZ23,
-author = {Xinlei He and Xinyue Shen and Zeyuan Chen and Michael Backes and Yang Zhang},
-title = {{MGTBench: Benchmarking Machine-Generated Text Detection}},
-journal = {{CoRR abs/2303.14822}},
-year = {2023}
-}
-```

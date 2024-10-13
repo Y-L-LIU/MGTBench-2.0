@@ -200,14 +200,14 @@ def load_NarrativeQA(detectLLM):
     return data_new
 
 
-def load(name, detectLLM, task='task2', cut_length=3000, disable=True, seed=0, match=False):
+def load(name, detectLLM, category='Art', seed=0):
 
     if name in ['TruthfulQA', 'SQuAD1', 'NarrativeQA']:
         load_fn = globals()[f'load_{name}']
         return load_fn(detectLLM)
     elif name in ["Essay", "Reuters", "WP"]:
 
-        f = pd.read_csv(f"datasets/{name}_LLMs.csv")
+        f = pd.read_csv(f"data/{name}_LLMs.csv")
         a_human = f["human"].tolist()
         a_chat = f[f'{detectLLM}'].fillna("").tolist()
 
@@ -233,7 +233,7 @@ def load(name, detectLLM, task='task2', cut_length=3000, disable=True, seed=0, m
         random.shuffle(index_list)
 
         total_num = len(res)
-        for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=disable):
+        for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=True):
             if i < total_num * 0.8:
                 data_partition = 'train'
             else:
@@ -247,70 +247,19 @@ def load(name, detectLLM, task='task2', cut_length=3000, disable=True, seed=0, m
 
         return data_new
     
-    elif name in ['Physics','Medicine','Biology','Electrical_engineering','Computer_science','Literature','History','Education','Art','Law','Management','Philosophy','Economy','Math','Statistics','Chemistry']:
-        human_data = datasets.load_dataset("/data1/zzy/MGT-human")
-        subject_human_data = human_data[name]
-        if task == 'task1':
-            task_path = '/data1/zzy/AIGen-TASK1'
-        elif task == 'task2' or task == 'task2_gen':
-            task_path = '/data1/zzy/AIGen-TASK2'
-        elif task == 'task3':
-            task_path = '/data1/zzy/AIGen-TASK3'
-        else:
-            raise ValueError(f'Unknown task {task}')
+    elif name == 'AITextDetect':
+        human_data = datasets.load_dataset("AITextDetect/HUMAN-Clean", trust_remote_code=True)
+        subject_human_data = human_data[category]
+        mgt_data = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name=detectLLM, split=category)
 
-        # mgt data
-        files = os.listdir(task_path)
-        files = [f for f in files if f.endswith('.json')]
-        files = [f for f in files if (f.split('.')[0].endswith(detectLLM) and f.startswith(name))]
-        mgt_data = None
-        for f in files:
-            with open(f'{task_path}/{f}', 'r') as f:
-                js = json.load(f)
-                if mgt_data is None:
-                    mgt_data = js
-                else:
-                    mgt_data += js
-    
         # data mix up
         all_data = []
         smaller_len = min([len(subject_human_data), len(mgt_data)])
 
-        if match:
-
-            for i in range(smaller_len):
-                if task == 'task2':
-                    raise ValueError(f'do not consider task2 for now')
-                    # ai_complete = mgt_data[i]['prompt'].splitlines()[-2].strip('\"') + mgt_data[i]['generated_text']
-                    # all_data.append({'text': ai_complete, 'label': 1})
-                elif task == 'task2_gen':
-                    all_data.append({'text': mgt_data[i]['generated_text'], 'label': 1})
-                elif task == 'task3':
-                    all_data.append({'text': mgt_data[i]['generated_text'], 'label': 1})
-                else:
-                    raise ValueError(f'Unknown task {task}')
-
-                # find corresponding human data by id, cannot shuffle
-                all_data.append({'text': subject_human_data[mgt_data[i]['id']]['text'], 'label': 0})
-
-        else:
-            subject_human_data = subject_human_data.shuffle(seed)
-            for i in range(smaller_len): # 50:50
-                if task == 'task2':
-                    ai_complete = mgt_data[i]['prompt'].splitlines()[-2].strip('\"') + mgt_data[i]['generated_text'] # concat generated text with first half 
-                    all_data.append({'text': ai_complete, 'label': 1})
-                elif task == 'task2_gen':
-                    all_data.append({'text': mgt_data[i]['generated_text'], 'label': 1})
-                elif task == 'task3':
-                    all_data.append({'text': mgt_data[i]['generated_text'], 'label': 1})
-                else:
-                    raise ValueError(f'Unknown task {task}')
-                
-                all_data.append({'text': subject_human_data[i]['text'], 'label': 0})
-
-        # temp: trim text to 
-        for i in range(len(all_data)):
-            all_data[i]['text'] = all_data[i]['text'][:cut_length]
+        subject_human_data = subject_human_data.shuffle(seed)
+        for i in range(smaller_len): # 50:50
+            all_data.append({'text': mgt_data[i]['text'], 'label': 1})
+            all_data.append({'text': subject_human_data[i]['text'], 'label': 0})
 
         index_list = list(range(len(all_data)))
         random.shuffle(index_list)
@@ -328,7 +277,7 @@ def load(name, detectLLM, task='task2', cut_length=3000, disable=True, seed=0, m
         }
 
         total_num = len(all_data)
-        for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=disable):
+        for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=True):
             if i < total_num * 0.8:
                 data_partition = 'train'
             else:
