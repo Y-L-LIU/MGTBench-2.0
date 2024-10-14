@@ -4,6 +4,39 @@ MGTBench2.0 provides the reference implementations of different machine-generate
 It is still under continuous development and we will include more detection methods as well as analysis tools in the future.
 
 
+## Quick Start
+
+### Installation
+```
+git clone -b release https://github.com/Y-L-LIU/MGTBench-2.0
+cd MGTBench-2.0
+conda env create -f environment.yml;
+conda activate mgtbench2;
+```
+
+
+Check out [`demo.ipynb`](demo.ipynb) for a quick start.
+```python
+from mgtbench import AutoDetector, AutoExperiment
+from mgtbench.loading.dataloader import load
+
+model_name_or_path = '/data1/zzy/gpt2-medium'
+metric = AutoDetector.from_detector_name('ll', 
+                                            model_name_or_path=model_name_or_path)
+experiment = AutoExperiment.from_experiment_name('threshold',detector=[metric])
+
+data_name = 'AITextDetect'
+detectLLM = 'gpt35'
+category = 'Art'
+data = load(data_name, detectLLM, category)
+experiment.load_data(data)
+res = experiment.launch()
+
+print('train:', res[0].train)
+print('test:', res[0].test)
+```
+
+
 ## Supported Methods
 Currently, we support the following methods (continuous updating):
 - Metric-based methods:
@@ -50,39 +83,6 @@ human = load_dataset("AITextDetect/HUMAN-Clean",
                      trust_remote_code=True
                      )
 ```
-
-## Quick Start
-
-### Installation
-```
-git clone -b release https://github.com/Y-L-LIU/MGTBench-2.0
-cd MGTBench-2.0
-conda env create -f environment.yml;
-conda activate mgtbench2;
-```
-
-
-Check out [`demo.ipynb`](demo.ipynb) for a quick start.
-```python
-from mgtbench import AutoDetector, AutoExperiment
-from mgtbench.loading.dataloader import load
-
-model_name_or_path = '/data1/zzy/gpt2-medium'
-metric = AutoDetector.from_detector_name('ll', 
-                                            model_name_or_path=model_name_or_path)
-experiment = AutoExperiment.from_experiment_name('threshold',detector=[metric])
-
-data_name = 'AITextDetect'
-detectLLM = 'gpt35'
-category = 'Art'
-data = load(data_name, detectLLM, category)
-experiment.load_data(data)
-res = experiment.launch()
-
-print('train:', res[0].train)
-print('test:', res[0].test)
-```
-
 
 ## Usage
 To run the benchmark on the `AITextDetect` dataset: 
