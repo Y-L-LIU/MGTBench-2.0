@@ -59,10 +59,10 @@ if __name__ == '__main__':
         experiment = AutoExperiment.from_experiment_name(METHOD_MAPPING[method],detector=[metric])
 
         data = load(name=datasource, detectLLM=args.detectLLM, category=cat)
-        data['train']['text'] = data['train']['text'][:100]
-        data['train']['label'] = data['train']['label'][:100]
-        data['test']['text'] = data['test']['text'][:100]
-        data['test']['label'] = data['test']['label'][:100]
+        data['train']['text'] = data['train']['text'][:200]
+        data['train']['label'] = data['train']['label'][:200]
+        data['test']['text'] = data['test']['text'][:200]
+        data['test']['label'] = data['test']['label'][:200]
         experiment.load_data(data)
 
         res = experiment.launch(**config)
@@ -75,5 +75,5 @@ if __name__ == '__main__':
     
     # save the results
     model = model.replace('/', '_')
-    with open(f'{datasource}_{args.method}_{model}_{args.detectLLM}.json', 'w') as f:
+    with open(f'{args.method}_{model}_{args.detectLLM}.json', 'w') as f:
         json.dump(results, f)

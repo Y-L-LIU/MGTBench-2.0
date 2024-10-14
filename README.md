@@ -70,18 +70,33 @@ From [wiki](https://en.wikipedia.org/wiki/Main_Page), [arxiv](https://arxiv.org/
 
 To check the dataset:
 ```python
+'''
+supported LLMs and detect categories:
+
+categories = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Computer_science', 'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 'Economy', 'Math', 'Statistics', 'Chemistry']
+
+llms = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3']
+
+'Human' for human written data
+'''
+
+detectLLM = 'Llama3'
+category = 'Math'
+
 from datasets import load_dataset
 # ai polished
 polish = load_dataset("AITextDetect/AI_Polish_clean",
-                      name='gpt35',
-                      split='Math',
+                      name=detectLLM,
+                      split=category,
                       trust_remote_code=True
                     )
 
 # human written
-human = load_dataset("AITextDetect/HUMAN-Clean",
+human = load_dataset("AITextDetect/AI_Polish_clean",
+                     name='Human',
+                     split=category,
                      trust_remote_code=True
-                     )
+                    )
 ```
 
 ## Usage

@@ -248,8 +248,7 @@ def load(name, detectLLM, category='Art', seed=0):
         return data_new
     
     elif name == 'AITextDetect':
-        human_data = datasets.load_dataset("AITextDetect/HUMAN-Clean", trust_remote_code=True)
-        subject_human_data = human_data[category]
+        subject_human_data = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name='Human', split=category)
         mgt_data = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name=detectLLM, split=category)
 
         # data mix up

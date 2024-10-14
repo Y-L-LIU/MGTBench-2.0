@@ -71,7 +71,7 @@ class SupervisedDetector(BaseDetector):
             output_dir=config.save_path,              # Output directory
             num_train_epochs=config.epochs,           # Number of epochs
             per_device_train_batch_size=config.batch_size,  # Batch size
-            evaluation_strategy="no",                # Evaluation strategy
+            eval_strategy="no",                      # Evaluation strategy
             save_strategy="epoch",                   # Save after each epoch
             logging_dir='./logs',                    # Directory for logs
             logging_steps=100,                       # Log every 100 steps
@@ -88,6 +88,7 @@ class SupervisedDetector(BaseDetector):
             train_dataset=train_dataset,
             tokenizer=self.tokenizer,
             optimizers=(AdamW(self.model.parameters(), lr=1e-5), None)  # Optimizer, lr_scheduler
+            # do not use torch.optim.AdamW, will cause nan
         )
 
         # Train the model
