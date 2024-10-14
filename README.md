@@ -100,11 +100,13 @@ Note that you can also specify your own datasets on ``dataset_loader.py``.
 ## Cite
 If you find this repo and dataset useful, please consider cite our work
 ```
-@article{he2023mgtbench,
-  title={Mgtbench: Benchmarking machine-generated text detection},
-  author={He, Xinlei and Shen, Xinyue and Chen, Zeyuan and Backes, Michael and Zhang, Yang},
-  journal={arXiv preprint arXiv:2303.14822},
-  year={2023}
+@inproceedings{he2024mgtbench,
+author = {He, Xinlei and Shen, Xinyue and Chen, Zeyuan and Backes, Michael and Zhang, Yang},
+title = {{Mgtbench: Benchmarking machine-generated text detection}},
+booktitle = {{ACM SIGSAC Conference on Computer and Communications Security (CCS)}},
+pages = {},
+publisher = {ACM},
+year = {2024}
 }
 
 @software{liu2024rethinkingMGT,
