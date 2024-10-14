@@ -96,3 +96,16 @@ python benchmark.py --detectLLM Llama3 --method LM-D --model /data1/models/disti
 python benchmark.py --detectLLM gpt35 --method ll --model /data1/zzy/gpt2-medium
 ```
 Note that you can also specify your own datasets on ``dataset_loader.py``.
+
+## Cite
+If you find this repo and dataset useful, please consider cite our work
+```
+@software{rethinkingMGT2024,
+  author = {Liu, Yule and Zhong, Zhiyuan and Liao, Yifan and Leng, Jiaqi and Sun, Zhen and Zhang, Yang and He, Xinlei},
+  month = {10},
+  title = {{MGTBench-2.0: Rethinking the Machine-Generated Text Detection}},
+  url = {https://github.com//Y-L-LIU/MGTBench-2.0},
+  version = {2.0.0},
+  year = {2024}
+}
+```
