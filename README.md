@@ -2,6 +2,7 @@
 
 MGTBench2.0 provides the reference implementations of different machine-generated text (MGT) detection methods.
 It is still under continuous development and we will include more detection methods as well as analysis tools in the future.
+![overview](https://github.com/user-attachments/assets/d8a0d4f7-79ad-4425-a3ee-65b0132e591b)
 
 
 ## Quick Start
