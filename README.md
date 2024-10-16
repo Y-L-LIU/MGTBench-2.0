@@ -85,6 +85,7 @@ detectLLM = 'Llama3'
 category = 'Math'
 
 from datasets import load_dataset
+
 # ai polished
 polish = load_dataset("AITextDetect/AI_Polish_clean",
                       name=detectLLM,
@@ -100,8 +101,17 @@ human = load_dataset("AITextDetect/AI_Polish_clean",
                     )
 ```
 
+You can also download the dataset from [Huggingface](https://huggingface.co/datasets/AITextDetect/AI_Polish_clean), and examine locally:
+```python
+from datasets import load_dataset
+
+# for human data, chemistry category
+human_chemistry = load_dataset("path/to/AITextDetect/AI_Polish_clean/Human/Chemistry")
+```
+
 ## Usage
 To run the benchmark on the `AITextDetect` dataset: 
+
 ```bash
 # specify the model with local path to your model, or model name on huggingface
 
@@ -111,6 +121,7 @@ python benchmark.py --detectLLM Llama3 --method LM-D --model /data1/models/disti
 # distinguish Human vs. gpt3.5 using log-likelihood detector
 python benchmark.py --detectLLM gpt35 --method ll --model /data1/zzy/gpt2-medium
 ```
+
 Note that you can also specify your own datasets on ``dataset_loader.py``.
 
 ## Cite
