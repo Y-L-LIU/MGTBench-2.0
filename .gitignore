@@ -180,3 +180,11 @@ figs/
 draw_utils/
 update_results/
 *.pth
+*.out
+test.ipynb
+*.png
+*.zip
+demo.ipynb
+script/
+draw.py
+attention_based_keyword.py

@@ -46,11 +46,16 @@ class SupervisedDetector(BaseDetector):
         pos_bit=0
         if not isinstance(text, list):
             text = [text]
+        n_positions = self.model.config.max_position_embeddings
+        if n_positions<1000:
+            n_positions=512
+        else:
+            n_positions=4096
         for batch in tqdm(DataLoader(text)):
             with torch.no_grad():
                 tokenized = self.tokenizer(
                     batch,
-                    max_length=512,
+                    max_length=n_positions,
                     return_tensors="pt",
                     truncation = True
                 ).to(self.model.device)
@@ -65,20 +70,20 @@ class SupervisedDetector(BaseDetector):
         # Tokenize the data
         train_encodings = self.tokenizer(data['text'], truncation=True, padding=True)
         train_dataset = CustomDataset(train_encodings, data['label'])
-
+        print(config.need_save)
         # Define the training arguments
         training_args = TrainingArguments(
             output_dir=config.save_path,              # Output directory
             num_train_epochs=config.epochs,           # Number of epochs
             per_device_train_batch_size=config.batch_size,  # Batch size
-            eval_strategy="no",                      # Evaluation strategy
-            save_strategy="epoch",                   # Save after each epoch
+            save_strategy="epoch" if config.need_save else 'no', # Save after each epoch
             logging_dir='./logs',                    # Directory for logs
-            logging_steps=100,                       # Log every 100 steps
+            logging_steps=50,                       # Log every 100 steps
             weight_decay=0.01,                       # Weight decay
-            learning_rate=1e-5,                      # Learning rate
+            learning_rate=config.lr,                      # Learning rate
             save_total_limit=2,                      # Limit to save only the best checkpoints
-            load_best_model_at_end=True if config.need_save else False  # Save best model
+            gradient_accumulation_steps=config.gradient_accumulation_steps
+            # load_best_model_at_end=True if config.need_save else False  # Save best model
         )
 
         # Initialize the Trainer
@@ -87,7 +92,7 @@ class SupervisedDetector(BaseDetector):
             args=training_args,
             train_dataset=train_dataset,
             tokenizer=self.tokenizer,
-            optimizers=(AdamW(self.model.parameters(), lr=1e-5), None)  # Optimizer, lr_scheduler
+            optimizers=(AdamW(self.model.parameters(), lr=config.lr), None)  # Optimizer, lr_scheduler
             # do not use torch.optim.AdamW, will cause nan
         )
 
@@ -95,5 +100,5 @@ class SupervisedDetector(BaseDetector):
         trainer.train()
 
         # Save the model if needed
-        if config.need_save:
-            self.model.save_pretrained(f'{config.save_path}/{self.name}')
+        # if config.need_save:
+        #     self.model.save_pretrained(f'{config.save_path}/{config.name}')

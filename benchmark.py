@@ -1,10 +1,11 @@
 import torch
 import json
 import argparse
-
+import os
 from mgtbench import AutoDetector, AutoExperiment
 from mgtbench.loading.dataloader import load
-
+from mgtbench.utils import setup_seed
+setup_seed(3407)
 config = {'need_finetune': True,
           'need_save': False,
           'epochs': 1
@@ -33,12 +34,21 @@ if __name__ == '__main__':
     parser.add_argument('--method', type=str, default='ll', choices=['gptzero', 'll', 'rank', 'rank_GLTR', 'entropy', 'detectGPT', 'NPR', 'LRR', 'LM-D', 'demasq'])
     parser.add_argument('--model', type=str, default='distilbert')
     parser.add_argument('--dataset', type=str, default="AITextDetect")
-    parser.add_argument('--epochs', type=int, default=1)
-    parser.add_argument('--save', type=lambda x: (str(x).lower() == 'true'), default=False)
+    parser.add_argument('--epochs', type=int, default=2)
+    parser.add_argument('--save', type=lambda x: (str(x).lower() == 'true'), default='true')
+    parser.add_argument('--lr', type=float, default=5e-6)
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--save_path', type=str, default='/data1/lyl/mgtout/')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=1)
+
     args = parser.parse_args()
 
     datasource = args.dataset
     config['epochs'] = args.epochs
+    config['need_save'] = args.save
+    config['batch_size'] = args.batch_size
+    config['gradient_accumulation_steps'] = args.gradient_accumulation_steps
+    config['lr'] = args.lr
     model = args.model
     save = args.save
     method = args.method
@@ -59,14 +69,16 @@ if __name__ == '__main__':
         experiment = AutoExperiment.from_experiment_name(METHOD_MAPPING[method],detector=[metric])
 
         data = load(name=datasource, detectLLM=args.detectLLM, category=cat)
-        data['train']['text'] = data['train']['text'][:200]
-        data['train']['label'] = data['train']['label'][:200]
-        data['test']['text'] = data['test']['text'][:200]
-        data['test']['label'] = data['test']['label'][:200]
+        data['train']['text'] = data['train']['text']
+        data['train']['label'] = data['train']['label']
+        data['test']['text'] = data['test']['text']
+        data['test']['label'] = data['test']['label']
         experiment.load_data(data)
-
+        model1 = model.rstrip('/').split('/')[-1]
+        config['name'] = f"{method}_{args.detectLLM}_{cat}"
+        config['save_path'] = os.path.join(args.save_path,model1,config['name'])
         res = experiment.launch(**config)
-        print(f'===== {cat} =====')
+        print(f'===== {cat} - {args.detectLLM} - {model}=====')
         print('train:', res[0].train)
         print('test:', res[0].test)
         print()
@@ -75,5 +87,5 @@ if __name__ == '__main__':
     
     # save the results
     model = model.replace('/', '_')
-    with open(f'{args.method}_{model}_{args.detectLLM}.json', 'w') as f:
+    with open(f'result/{args.method}_{model}_{args.detectLLM}_{args.lr}.json', 'w') as f:
         json.dump(results, f)

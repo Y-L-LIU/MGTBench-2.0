@@ -167,9 +167,15 @@ def load_pretrained_supervise(model_name_or_path, kargs, quantization_bit=None) 
         **config_kwargs
     )
     try:
-        n_positions = model.config.n_positions
+        n_positions = model.config.max_position_embeddings
+        if n_positions<1000:
+            n_positions=512
+        else:
+            n_positions=4096
     except AttributeError:
         n_positions = 512
+    print(f'length is set to {n_positions}')
+        
     tokenizer_path = kargs.get("tokenizer_path", model_name_or_path)
     tokenizer = AutoTokenizer.from_pretrained(
         tokenizer_path,

@@ -102,11 +102,14 @@ class PerturbExperiment(BaseExperiment):
 @dataclass
 class SupervisedConfig:
     need_finetune:bool=False
+    name:str=''
     need_save:bool=True
     batch_size:int=16
     pos_bit:int=1
     epochs:int=3
     save_path:str='finetuned/'
+    gradient_accumulation_steps:int=1
+    lr:float=5e-6
 
     def update(self, kargs):
         for field in fields(self):
