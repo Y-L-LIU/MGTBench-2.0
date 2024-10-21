@@ -106,10 +106,16 @@ To run the benchmark on the `AITextDetect` dataset:
 # specify the model with local path to your model, or model name on huggingface
 
 # distinguish Human vs. Llama3 using LM-D detector
-python benchmark.py --detectLLM Llama3 --method LM-D --model /data1/models/distilbert-base-uncased
+python benchmark.py --detectLLM Llama3\
+                    --method LM-D\
+                    --model /path/to/distilbert-base-uncased\
+                    --epochs 1 \
+                    --batch_size 64 \
+                    --lr 5e-6  
+
 
 # distinguish Human vs. gpt3.5 using log-likelihood detector
-python benchmark.py --detectLLM gpt35 --method ll --model /data1/zzy/gpt2-medium
+python benchmark.py --detectLLM gpt35 --method ll --model /path/to/gpt2-medium
 ```
 Note that you can also specify your own datasets on ``dataset_loader.py``.
 
