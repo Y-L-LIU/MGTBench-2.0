@@ -9,6 +9,10 @@ import json
 # you can add more datasets here and write your own dataset parsing function
 DATASETS = ['TruthfulQA', 'SQuAD1', 'NarrativeQA', "Essay", "Reuters", "WP"]
 
+MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3']
+CATEGORIES = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Computer_science', 'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 'Economy', 'Math', 'Statistics', 'Chemistry']
+
+from mgtbench.utils import setup_seed
 
 def process_spaces(text):
     return text.replace(
@@ -288,3 +292,76 @@ def load(name, detectLLM, category='Art', seed=0):
 
     else:
         raise ValueError(f'Unknown dataset {name}')
+
+def prepare_attribution(category='Art', seed=0):
+    setup_seed(seed)
+    # human
+    subject_human_data = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name='Human', split=category)
+
+    # Prepare attribution data 
+    model_data = {}
+    for m in MODELS:
+        model_data[m] = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name=m, split=category)
+        # print(m, len(model_data[m]))
+
+    min_len = int(1e9)
+    for m in MODELS:
+        min_len = min(min_len, len(model_data[m]))
+
+    # balance the data
+    for m in MODELS:
+        model_data[m] = model_data[m].shuffle().select(range(min_len))
+        # print(m, len(model_data[m]))
+
+    label_mapping = {'Human': 0, 'Moonshot': 1, 'gpt35': 2, 'Mixtral': 3, 'Llama3': 4}
+
+    all_data = []
+    for m in MODELS:
+        this_data = model_data[m]
+        for d in this_data:
+            all_data.append({'text': d['text'], 'label': label_mapping[m]})
+
+    human_sample = subject_human_data.shuffle().select(range(min_len))
+    for d in human_sample:
+        all_data.append({'text': d['text'], 'label': label_mapping['Human']})
+
+    data = {
+        'train': {
+            'text': [],
+            'label': [],
+        },
+        'test': {
+            'text': [],
+            'label': [],
+        }
+    }
+
+    index_list = list(range(len(all_data)))
+    random.shuffle(index_list)
+
+    total_num = len(all_data)
+    for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=True):
+        if i < total_num * 0.8:
+            data_partition = 'train'
+        else:
+            data_partition = 'test'
+        data[data_partition]['text'].append(
+            process_spaces(all_data[index_list[i]]['text']))
+        data[data_partition]['label'].append(all_data[index_list[i]]['label'])
+
+    return data
+
+
+def load_attribution(category):
+    saved_data_path = f"data/{category}_attribution_data.json"
+    if not os.path.exists("data"):
+        os.makedirs("data")
+    if not os.path.exists(saved_data_path):
+        data = prepare_attribution(category, seed=3407)
+        with open(saved_data_path, 'w') as f:
+            json.dump(data, f)
+    else:
+        with open(saved_data_path, 'r') as f:
+            data = json.load(f)
+
+    return data

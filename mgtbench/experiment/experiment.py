@@ -136,6 +136,7 @@ class SupervisedExperiment(BaseExperiment):
 
     def predict(self, **kargs):
         predict_list = []
+        disable_tqdm = kargs.get('disable_tqdm', False)
         for detector in self.detector:
             print(f'Running prediction of detector {detector.name}')
             if detector.name not in self._ALLOWED_detector:
@@ -146,22 +147,43 @@ class SupervisedExperiment(BaseExperiment):
                 data_train = {'text':self.train_text, 'label':self.train_label}
                 detector.finetune(data_train, self.supervise_config)
                 print('Fine-tune finished')
-            print('Predict training data')
-            train_preds, train_labels = self.data_prepare(detector.detect(self.train_text),self.train_label)
-            print('Predict testing data')
-            test_preds, test_labels = self.data_prepare(detector.detect(self.test_text), self.test_label)
-            print('Run classification for results')
-            y_train_pred = np.where(train_preds[:, 0] >= 0.5, 0, 1)
-            y_test_pred = np.where(test_preds[:, 0] >= 0.5, 0, 1)
-            train_preds = [1 - x for x in train_preds.flatten().tolist()]
-            test_preds = [1 - x for x in test_preds.flatten().tolist()]
-            train_result = train_labels, y_train_pred, train_preds
-            test_result = test_labels, y_test_pred, test_preds
-            # clf = LogisticRegression(random_state=0).fit(train_preds, train_labels)
-            # train_result = self.run_clf(clf, train_preds, train_labels)
-            # test_result = self.run_clf(clf, test_preds, test_labels)
-            predict_list.append({'train_pred':train_result,
-                                 'test_pred':test_result})
+
+            is_eval = kargs.get('eval', False)
+            if is_eval:
+                print('Predict testing data')
+                test_preds, test_labels = self.data_prepare(detector.detect(self.test_text, disable_tqdm=disable_tqdm), self.test_label)
+                print('Run classification for results')
+                if detector.model.config.num_labels == 2:
+                    y_test_pred = np.where(test_preds[:, 0] >= 0.5, 1, 0)
+                    test_preds = [x for x in test_preds.flatten().tolist()]
+                else:
+                    y_test_pred = test_preds[:, 0]
+                test_result = test_labels, y_test_pred, test_preds
+                predict_list.append({'test_pred':test_result})
+
+            else:
+                print('Predict training data')
+                train_preds, train_labels = self.data_prepare(detector.detect(self.train_text, disable_tqdm=disable_tqdm),self.train_label)
+                print('Predict testing data')
+                test_preds, test_labels = self.data_prepare(detector.detect(self.test_text, disable_tqdm=disable_tqdm), self.test_label)
+                print('Run classification for results')
+
+                if detector.model.config.num_labels == 2:
+                    y_train_pred = np.where(train_preds[:, 0] >= 0.5, 1, 0)
+                    y_test_pred = np.where(test_preds[:, 0] >= 0.5, 1, 0)
+                    train_preds = [x for x in train_preds.flatten().tolist()]
+                    test_preds = [x for x in test_preds.flatten().tolist()]
+                else:
+                    y_train_pred = train_preds[:, 0]
+                    y_test_pred = test_preds[:, 0]
+
+                train_result = train_labels, y_train_pred, train_preds
+                test_result = test_labels, y_test_pred, test_preds
+                # clf = LogisticRegression(random_state=0).fit(train_preds, train_labels)
+                # train_result = self.run_clf(clf, train_preds, train_labels)
+                # test_result = self.run_clf(clf, test_preds, test_labels)
+                predict_list.append({'train_pred':train_result,
+                                     'test_pred':test_result})
         return predict_list
 
 

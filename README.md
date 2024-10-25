@@ -128,7 +128,20 @@ python benchmark.py --detectLLM Llama3\
 python benchmark.py --detectLLM gpt35 --method ll --model /path/to/gpt2-medium
 ```
 
-Note that you can also specify your own datasets on ``dataset_loader.py``.
+To run model attribution on the `AITextDetect` dataset:
+```bash
+# distinguish Human, Moonshot, gpt3.5, Mixtral, Llama3 using LM-D detector
+
+python attribution_train_all.py \
+    --model_save_dir /data1/model_attribution \ # path to save the models
+    --output_csv attribution_results_new.csv && \ 
+python attribution_eval_all.py \
+    --result_csv eval_result.csv 
+```
+
+Produces a `attribution_results_new.csv` file with all results and a `eval_result.csv` file with the highest F1 score for each category. The `figure` folder contains the confusion matrix for each category.
+
+Note that you can also specify your own datasets on ``dataloader.py``.
 
 ## Cite
 If you find this repo and dataset useful, please consider cite our work
