@@ -354,6 +354,8 @@ def prepare_attribution(category='Art', seed=0):
 
 def load_attribution(category):
     saved_data_path = f"data/{category}_attribution_data.json"
+    if not os.path.exists("data"):
+        os.makedirs("data")
     if not os.path.exists(saved_data_path):
         data = prepare_attribution(category, seed=3407)
         with open(saved_data_path, 'w') as f:
