@@ -42,8 +42,8 @@ class SupervisedDetector(BaseDetector):
             raise ValueError('Expect PreTrainedModel, PreTrainedTokenizer, got', type(self.model), type(self.tokenizer))
         
     def detect(self, text, **kargs):
+        disable_tqdm = kargs.get('disable_tqdm', False)
         result = []
-        pos_bit=0
         if not isinstance(text, list):
             text = [text]
         n_positions = self.model.config.max_position_embeddings
@@ -51,16 +51,30 @@ class SupervisedDetector(BaseDetector):
             n_positions=512
         else:
             n_positions=4096
-        for batch in tqdm(DataLoader(text)):
-            with torch.no_grad():
-                tokenized = self.tokenizer(
-                    batch,
-                    max_length=n_positions,
-                    return_tensors="pt",
-                    truncation = True
-                ).to(self.model.device)
-                result.append(self.model(**tokenized).logits.softmax(-1)[:, pos_bit].item())
-        # print(result)
+            
+        num_labels = self.model.config.num_labels
+        if num_labels == 2:
+            pos_bit=1
+            for batch in tqdm(DataLoader(text), disable=disable_tqdm):
+                with torch.no_grad():
+                    tokenized = self.tokenizer(
+                        batch,
+                        max_length=n_positions,
+                        return_tensors="pt",
+                        truncation = True
+                    ).to(self.model.device)
+                    result.append(self.model(**tokenized).logits.softmax(-1)[:, pos_bit].item())
+        else:
+            for batch in tqdm(DataLoader(text), disable=disable_tqdm):
+                with torch.no_grad():
+                    tokenized = self.tokenizer(
+                        batch,
+                        max_length=n_positions,
+                        return_tensors="pt",
+                        truncation = True
+                    ).to(self.model.device)
+                    result.append(torch.argmax(self.model(**tokenized).logits, dim=-1).item())
+
         return result if isinstance(text, list) else result[0]
     
     def finetune(self, data, config):

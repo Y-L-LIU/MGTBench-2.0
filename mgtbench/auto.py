@@ -37,6 +37,24 @@ class BaseDetector(ABC):
         raise NotImplementedError('Invalid detector, implement detect first.')
 
 
+@dataclass
+class Metric:
+    acc: float = None
+    precision: float = None
+    recall: float = None
+    f1: float = None
+    auc: float = None
+    conf_m: np.ndarray = None # confusion matrix for multi-class classification    
+
+
+@dataclass
+class DetectOutput:
+    name: str = None
+    predictions = None
+    train: Metric = None
+    test: Metric = None
+    clf  = None
+
 
 class ModelBasedDetector(BaseDetector):
     def __init__(self,name,**kargs) -> None:
@@ -65,13 +83,14 @@ class BaseExperiment(ABC):
         y_train_pred_prob = [_[1] for _ in y_train_pred_prob]
         return (y, y_train_pred, y_train_pred_prob)
 
-    def cal_metrics(self, label, pred_label, pred_posteriors):
+    def cal_metrics(self, label, pred_label, pred_posteriors) -> Metric:
         if len(set(label)) < 3:
             acc = accuracy_score(label, pred_label)
             precision = precision_score(label, pred_label)
             recall = recall_score(label, pred_label)
             f1 = f1_score(label, pred_label)
             auc = roc_auc_score(label, pred_posteriors)
+            return Metric(acc, precision, recall, f1, auc)
         else:
             acc = accuracy_score(label, pred_label)
             precision = precision_score(label, pred_label, average='weighted')
@@ -80,7 +99,7 @@ class BaseExperiment(ABC):
             auc = -1.0
             conf_m = confusion_matrix(label, pred_label)
             print(conf_m)
-        return Metric(acc, precision, recall, f1, auc)
+            return Metric(acc, precision, recall, f1, auc, conf_m)
     
 
     def load_data(self, data):
@@ -97,32 +116,23 @@ class BaseExperiment(ABC):
         predict_list = self.predict(**config)
         final_output = []
         for detector_predict in predict_list:
-            train_metric = self.cal_metrics(*detector_predict['train_pred'])
-            test_metric = self.cal_metrics(*detector_predict['test_pred'])
-            final_output.append(DetectOutput(
-                name = '',
-                train = train_metric,
-                test = test_metric
-            ))
+            is_eval = config.get('eval', False)
+            if is_eval:
+                test_metric = self.cal_metrics(*detector_predict['test_pred'])
+                final_output.append(DetectOutput(
+                    name = '',
+                    test = test_metric
+                ))
+            else:
+                train_metric = self.cal_metrics(*detector_predict['train_pred'])
+                test_metric = self.cal_metrics(*detector_predict['test_pred'])
+                final_output.append(DetectOutput(
+                    name = '',
+                    train = train_metric,
+                    test = test_metric
+                ))
         return final_output 
 
-
-@dataclass
-class Metric:
-    acc:float= None
-    precision:float= None
-    recall:float= None
-    f1:float= None
-    auc :float= None
-    
-
-@dataclass
-class DetectOutput:
-    name: str = None
-    predictions=None
-    train: Metric = None
-    test: Metric = None
-    clf  = None
 
 class AutoDetector:
     _detector_mapping = DETECTOR_MAPPING
