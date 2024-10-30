@@ -83,7 +83,7 @@ def init_model(**kargs):
     tmp = IncrementalModel(model_name_or_path, kargs)
     return tmp, tmp.tokenizer
 
-class IncrementalDetector(nn.Module, BaseDetector):
+class IncrementalDetector(BaseDetector):
     def __init__(self, name, **kargs):
         """
         Initialize with a specific base model (e.g., DistilBert, Bert).
