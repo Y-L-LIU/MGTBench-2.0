@@ -30,7 +30,7 @@ METHOD_MAPPING = {
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--detectLLM', type=str, default='Moonshot', choices=['Moonshot', 'gpt35', 'Mixtral', 'Llama3'])
+    parser.add_argument('--detectLLM', type=str, default='Moonshot', choices=['Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini'])
     parser.add_argument('--method', type=str, default='ll', choices=['gptzero', 'll', 'rank', 'rank_GLTR', 'entropy', 'detectGPT', 'NPR', 'LRR', 'LM-D', 'demasq'])
     parser.add_argument('--model', type=str, default='distilbert')
     parser.add_argument('--dataset', type=str, default="AITextDetect")
