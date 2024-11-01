@@ -53,6 +53,7 @@ class SupervisedDetector(BaseDetector):
             n_positions=4096
             
         num_labels = self.model.config.num_labels
+        # TODO: combine the two cases use inner loop if
         if num_labels == 2:
             pos_bit=1
             for batch in tqdm(DataLoader(text), disable=disable_tqdm):

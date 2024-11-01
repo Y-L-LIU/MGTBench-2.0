@@ -19,6 +19,7 @@ DETECTOR_MAPPING = {
     'ChatGPT-D':'mgtbench.methods.SupervisedDetector',
     'LM-D':'mgtbench.methods.SupervisedDetector',
     'demasq' : 'mgtbench.methods.DemasqDetector',
+    'increamental': 'mgtbench.methods.IncrementalDetector'
 }
 
 EXPERIMENT_MAPPING = {
