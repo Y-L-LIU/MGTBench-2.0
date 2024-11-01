@@ -4,8 +4,9 @@ import csv
 
 from mgtbench import AutoDetector, AutoExperiment
 from mgtbench.loading.dataloader import load_attribution
-
-MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3']
+ 
+# add more models here
+MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini']
 
 
 def train_attribution(model_path, category, epoch, batch_size, save_dir, output_csv):
@@ -43,12 +44,12 @@ def train_attribution(model_path, category, epoch, batch_size, save_dir, output_
         # If CSV doesn't exist, create and write header
         with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
             csvwriter = csv.writer(csvfile)
-            csvwriter.writerow(['Model', 'Category', 'Batch_Size', 'Epoch', 'Test_f1'])
+            csvwriter.writerow(['Model', 'Category', 'Batch_Size', 'Epoch', 'Train_f1', 'Test_f1'])
 
     # Write results to CSV file
     with open(output_csv, 'a', newline='', encoding='utf-8') as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow([model_name, category, batch_size, epoch, round(res[0].test.f1, 4)])
+        csvwriter.writerow([model_name, category, batch_size, epoch, round(res[0].train.f1, 4), round(res[0].test.f1, 4)])
 
 
 if __name__ == '__main__':

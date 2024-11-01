@@ -6,13 +6,14 @@ CATEGORIES = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Compu
               'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 
               'Economy', 'Math', 'Statistics', 'Chemistry']
 
-model_save_dir = '/data1/zzy/model_attribution'
+# model_save_dir = '/data1/zzy/model_attribution'
+model_save_dir = '/data_sda/zhiyuan/model_attribution'
 # model_save_dir = '/data1/zzy/temp'
 
 output_csv = 'attribution_results_new.csv'
 # output_csv = 'temp.csv'
 
-gpu_pool = [3, 5, 6, 7]
+gpu_pool = [0,5]
 
 def run_training(gpu_id: int, queue: Queue, model_save_dir: str, output_csv: str):
     while not queue.empty():
@@ -29,7 +30,7 @@ def run_training(gpu_id: int, queue: Queue, model_save_dir: str, output_csv: str
                   f"--model_save_dir {model_save_dir} " \
                   f"--output_csv {output_csv} "
         
-        print(f"Training on GPU {gpu_pool[gpu_id]}: {category}, Batch size: {batch_size}, Epoch: {epoch}")
+        print(f"Training on GPU {gpu_pool[gpu_id]}: {category}, Batch size: {batch_size}, Epoch: {epoch}, Base model: {base_model}")
         subprocess.run(command, shell=True)
 
 def assign_run_attribution(gpu_count: int, model_save_dir: str, output_csv: str):

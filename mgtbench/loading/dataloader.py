@@ -9,7 +9,8 @@ import json
 # you can add more datasets here and write your own dataset parsing function
 DATASETS = ['TruthfulQA', 'SQuAD1', 'NarrativeQA', "Essay", "Reuters", "WP"]
 
-MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3']
+MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini']
+
 CATEGORIES = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Computer_science', 'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 'Economy', 'Math', 'Statistics', 'Chemistry']
 
 from mgtbench.utils import setup_seed
@@ -313,7 +314,7 @@ def prepare_attribution(category='Art', seed=0):
         model_data[m] = model_data[m].shuffle().select(range(min_len))
         # print(m, len(model_data[m]))
 
-    label_mapping = {'Human': 0, 'Moonshot': 1, 'gpt35': 2, 'Mixtral': 3, 'Llama3': 4}
+    label_mapping = {'Human': 0, 'Moonshot': 1, 'gpt35': 2, 'Mixtral': 3, 'Llama3': 4, 'gpt-4omini': 5}
 
     all_data = []
     for m in MODELS:
