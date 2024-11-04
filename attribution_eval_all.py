@@ -4,7 +4,7 @@ import pandas as pd
 import subprocess
 from multiprocessing import Process, Queue
 
-gpu_pool = [3,5,6,7]  # List of available GPU IDs
+gpu_pool = [0,5]  # List of available GPU IDs
 
 def run_eval(gpu_id: int, task_queue: Queue, result_csv: str):
     """Worker function to run evaluation on assigned tasks."""
@@ -44,8 +44,7 @@ def assign_eval_tasks(gpu_count: int, result_csv: str):
         category = row[2]
         batch_size = row[3]
         epoch = row[4]
-
-        model_path = f'/data1/zzy/model_attribution/{category}_{model_name}_{batch_size}_{epoch}'
+        model_path = f'/data_sda/zhiyuan/model_attribution/{category}_{model_name}_{batch_size}_{epoch}'
         checkpoints = [c for c in os.listdir(model_path) if c.startswith('checkpoint')]
         checkpoints = sorted(checkpoints, key=lambda x: int(x.split('-')[-1]))
         checkpoint = checkpoints[-1]

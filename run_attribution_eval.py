@@ -8,6 +8,7 @@ import seaborn as sns
 from mgtbench import AutoDetector, AutoExperiment
 from mgtbench.loading.dataloader import load_attribution
 
+MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini']
 
 def eval_attribution(model_path, category, output_csv):
     data = load_attribution(category)
@@ -16,7 +17,7 @@ def eval_attribution(model_path, category, output_csv):
     model_name_or_path = model_path
     metric = AutoDetector.from_detector_name('LM-D',
                                             model_name_or_path=model_name_or_path,
-                                            num_labels=5
+                                            num_labels=len(MODELS) + 1
                                             )
     experiment = AutoExperiment.from_experiment_name('supervised',detector=[metric])
     experiment.load_data(data)
@@ -31,7 +32,7 @@ def eval_attribution(model_path, category, output_csv):
 
     print('==========')
     print('category:', category)
-    print('train:', res[0].train)
+    # print('train:', res[0].train)
     print('test:', res[0].test)
     
     if os.path.exists(output_csv):
@@ -58,15 +59,15 @@ def eval_attribution(model_path, category, output_csv):
     plot_confusion_matrix(arr, category, save_path)
 
 
-label_to_class = {0: 'Human', 1: 'Moonshot', 2: 'gpt35', 3: 'Mixtral', 4: 'Llama3'}
-class_names = ['Human', 'Moonshot', 'gpt35', 'Mixtral', 'Llama3']
+label_to_class = {0: 'Human', 1: 'Moonshot', 2: 'gpt35', 3: 'Mixtral', 4: 'Llama3', 5: 'gpt-4omini'}
+class_names = ['Human', 'Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini']
 
 
 def plot_confusion_matrix(conf_m, category, save_path):
     # Calculate the percentage for each cell in the confusion matrix
     conf_m_percent = conf_m.astype('float') / conf_m.sum(axis=1)[:, np.newaxis] * 100
 
-    plt.figure(figsize=(5, 5))
+    plt.figure(figsize=(6, 6))
     sns.heatmap(conf_m_percent, annot=True, fmt='.2f',  # Format as percentage
                  cmap='Blues',
                  cbar=False, 
