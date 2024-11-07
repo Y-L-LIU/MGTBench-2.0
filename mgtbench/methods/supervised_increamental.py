@@ -40,7 +40,7 @@ class ContinualTrainer(Trainer):
         # loss_fn = torch.nn.CrossEntropyLoss()  # Example with weights for imbalance
         # loss = loss_fn(logits, labels)
         
-        return outputs.loss
+        return (outputs.loss, outputs) if return_outputs else outputs.loss
 
 
 class IncrementalModel(nn.Module):
@@ -118,18 +118,39 @@ class IncrementalDetector(BaseDetector):
             n_positions=512
         else:
             n_positions=4096
+        num_labels = self.model.pretrained.config.num_labels
 
-        for batch in tqdm(DataLoader(text), disable=disable_tqdm):
-            #TODO: check if two cases are consistent? (num_label=2 or more)
-            with torch.no_grad():
-                tokenized = self.tokenizer(
-                    batch,
-                    max_length=n_positions,
-                    return_tensors="pt",
-                    truncation = True
-                ).to(self.model.pretrained.device)
-                result.append(torch.argmax(self.model(**tokenized).logits, dim=-1).item())
+        if num_labels == 2:
+            pos_bit=1
+            for batch in tqdm(DataLoader(text), disable=disable_tqdm):
+                with torch.no_grad():
+                    tokenized = self.tokenizer(
+                        batch,
+                        max_length=n_positions,
+                        return_tensors="pt",
+                        truncation = True
+                    ).to(self.model.pretrained.device)
+                    result.append(self.model(**tokenized).logits.softmax(-1)[:, pos_bit].item())
+        else:
+            for batch in tqdm(DataLoader(text), disable=disable_tqdm):
+                with torch.no_grad():
+                    tokenized = self.tokenizer(
+                        batch,
+                        max_length=n_positions,
+                        return_tensors="pt",
+                        truncation = True
+                    ).to(self.model.pretrained.device)
+                    result.append(torch.argmax(self.model(**tokenized).logits, dim=-1).item())
+
         return result if isinstance(text, list) else result[0]
+
+    def get_dataset(self, stage_data):
+        encodings = self.tokenizer(stage_data['text'], truncation=True, padding=True)
+        unique_elements = set(stage_data['label'])
+        num_newclass = len(unique_elements)
+        dataset = ContinualDataset(encodings, stage_data['label'], num_newclass)
+        return dataset
+
 
     def finetune(self, data, config):
         training_args = TrainingArguments(
@@ -137,34 +158,43 @@ class IncrementalDetector(BaseDetector):
             num_train_epochs=config.epochs,           # Number of epochs
             per_device_train_batch_size=config.batch_size,  # Batch size
             save_strategy="epoch" if config.need_save else 'no', # Save after each epoch
+            do_eval=True,
+            evaluation_strategy='steps',
             logging_dir='./logs',                    # Directory for logs
             logging_steps=10,                       # Log every 100 steps
             weight_decay=0.01,                       # Weight decay
             learning_rate=config.lr,                      # Learning rate
             save_total_limit=2,                      # Limit to save only the best checkpoints
             gradient_accumulation_steps=config.gradient_accumulation_steps,
-            remove_unused_columns=False
+            remove_unused_columns=False,
+            label_names = ["labels"],
             # load_best_model_at_end=True if config.need_save else False  # Save best model
         )
 
         # prepare data for the first stage, each stage contains a continual dataset
         stages = data['train']
+        eval_set = data['test']
+        pre_lr = config.lr
         for idx, stage_data in enumerate(stages):
-            train_encodings = self.tokenizer(stage_data['text'], truncation=True, padding=True)
-            unique_elements = set(stage_data['label'])
-            num_newclass = len(unique_elements)
-            train_dataset = ContinualDataset(train_encodings, stage_data['label'], num_newclass)
+            train_dataset = self.get_dataset(stage_data)
+            test_dataset = self.get_dataset(eval_set[idx])
             print(train_dataset[0].keys())
             if idx != 0:
-                self.increment_classes(num_newclass)
-            print(unique_elements, self.model.pretrained.num_labels,self.model.pretrained.classifier)
+                self.increment_classes(train_dataset.new_class)
+            print(train_dataset.new_class, self.model.pretrained.num_labels,self.model.pretrained.classifier)
+
             trainer = ContinualTrainer(model=self.model,
                                     args=training_args,
                                     train_dataset=train_dataset,
+                                    eval_dataset=test_dataset,
                                     tokenizer = self.tokenizer,
-                                    optimizers=(AdamW(self.model.parameters(), lr=config.lr), None)
-                                    )   
+                                    optimizers=(AdamW(self.model.parameters(), lr=pre_lr), None)
+                                    )
             trainer.train()
+            pre_lr = config.lr / 8
+            print(f'next lr is {pre_lr}')
+
+
 
 
 
