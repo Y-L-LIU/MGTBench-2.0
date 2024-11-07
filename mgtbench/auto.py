@@ -26,7 +26,8 @@ EXPERIMENT_MAPPING = {
     'threshold' : 'mgtbench.experiment.ThresholdExperiment',
     'perturb' : 'mgtbench.experiment.PerturbExperiment',
     'supervised' : 'mgtbench.experiment.SupervisedExperiment',
-    'demasq' : 'mgtbench.experiment.DemasqExperiment'
+    'demasq' : 'mgtbench.experiment.DemasqExperiment',
+    'increamental' : 'mgtbench.experiment.IncreamentalExperiment',
 }
 
 class BaseDetector(ABC):
