@@ -19,7 +19,7 @@ DETECTOR_MAPPING = {
     'ChatGPT-D':'mgtbench.methods.SupervisedDetector',
     'LM-D':'mgtbench.methods.SupervisedDetector',
     'demasq' : 'mgtbench.methods.DemasqDetector',
-    'increamental': 'mgtbench.methods.IncrementalDetector'
+    'incremental': 'mgtbench.methods.IncrementalDetector'
 }
 
 EXPERIMENT_MAPPING = {
@@ -27,7 +27,7 @@ EXPERIMENT_MAPPING = {
     'perturb' : 'mgtbench.experiment.PerturbExperiment',
     'supervised' : 'mgtbench.experiment.SupervisedExperiment',
     'demasq' : 'mgtbench.experiment.DemasqExperiment',
-    'increamental' : 'mgtbench.experiment.IncreamentalExperiment',
+    'incremental' : 'mgtbench.experiment.IncrementalExperiment',
 }
 
 class BaseDetector(ABC):
