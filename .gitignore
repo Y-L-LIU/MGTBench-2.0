@@ -188,3 +188,4 @@ demo.ipynb
 script/
 draw.py
 attention_based_keyword.py
+*.pickle

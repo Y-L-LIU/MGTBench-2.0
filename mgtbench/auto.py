@@ -86,7 +86,7 @@ class BaseExperiment(ABC):
         return (y, y_train_pred, y_train_pred_prob)
 
     def cal_metrics(self, label, pred_label, pred_posteriors) -> Metric:
-        if len(set(label)) < 3:
+        if max(set(label)) < 2:
             acc = accuracy_score(label, pred_label)
             precision = precision_score(label, pred_label)
             recall = recall_score(label, pred_label)

@@ -273,6 +273,7 @@ class IncreamentalConfig:
     save_path:str='finetuned/'
     gradient_accumulation_steps:int=1
     lr:float=5e-6
+    lr_factor:int = 5
 
     def update(self, kargs):
         for field in fields(self):
@@ -325,7 +326,7 @@ class IncreamentalExperiment(BaseExperiment):
                 print('Predict testing data')
                 test_preds, test_labels = self.data_prepare(detector.detect(self.test_text, disable_tqdm=disable_tqdm), self.test_label)
                 print('Run classification for results')
-                if detector.model.pretrained.config.num_labels == 2:
+                if detector.model.pretrained.num_labels == 2:
                     y_test_pred = np.where(test_preds[:, 0] >= 0.5, 1, 0)
                     test_preds = [x for x in test_preds.flatten().tolist()]
                 else:
@@ -340,7 +341,7 @@ class IncreamentalExperiment(BaseExperiment):
                 test_preds, test_labels = self.data_prepare(detector.detect(self.test_text, disable_tqdm=disable_tqdm), self.test_label)
                 print('Run classification for results')
 
-                if detector.model.pretrained.config.num_labels == 2:
+                if detector.model.pretrained.num_labels == 2:
                     y_train_pred = np.where(train_preds[:, 0] >= 0.5, 1, 0)
                     y_test_pred = np.where(test_preds[:, 0] >= 0.5, 1, 0)
                     train_preds = [x for x in train_preds.flatten().tolist()]
