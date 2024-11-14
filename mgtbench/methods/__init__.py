@@ -3,4 +3,4 @@ from .metric_based import LLDetector, RankDetector, RankGLTRDetector, EntropyDet
 from .perturb import PerturbBasedDetector, DetectGPTDetector, NPRDetector, LRRDetector
 from .supervised import SupervisedDetector
 from .demasq import DemasqDetector
-from .supervised_increamental import IncrementalDetector
+from .supervised_incremental import IncrementalDetector
