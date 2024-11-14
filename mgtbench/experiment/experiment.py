@@ -263,7 +263,7 @@ class GPTZeroExperiment(BaseExperiment):
 
 
 @dataclass
-class IncreamentalConfig:
+class IncrementalConfig:
     need_finetune:bool=False
     name:str=''
     need_save:bool=True
@@ -281,7 +281,7 @@ class IncreamentalConfig:
                 setattr(self, field.name, kargs[field.name])
 
 
-class IncreamentalExperiment(BaseExperiment):
+class IncrementalExperiment(BaseExperiment):
     '''
     class SupervisedConfig:
         need_finetune:bool=False
@@ -291,13 +291,13 @@ class IncreamentalExperiment(BaseExperiment):
         epochs:int=3
         save_path:str='finetuned/'
     '''
-    _ALLOWED_detector = ['increamental' ]
+    _ALLOWED_detector = ['incremental' ]
     def __init__(self, detector, **kargs) -> None:
         super().__init__()
         self.detector = [detector] if isinstance(detector, IncrementalDetector) else detector
         if not self.detector:
             raise ValueError('You should pass a list of detector to an experiment')
-        self.supervise_config= IncreamentalConfig()
+        self.supervise_config= IncrementalConfig()
 
     def load_data(self, data):
         self.loaded = True
