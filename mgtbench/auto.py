@@ -11,6 +11,7 @@ DETECTOR_MAPPING = {
     'rank_GLTR' : 'mgtbench.methods.RankGLTRDetector',
     'entropy' : 'mgtbench.methods.EntropyDetector',
     'detectGPT' : 'mgtbench.methods.DetectGPTDetector',
+    'fast-detectGPT' : 'mgtbench.methods.FastDetectGPTDetector',
     'NPR' : 'mgtbench.methods.NPRDetector',
     'LRR' : 'mgtbench.methods.LRRDetector',
     'GPTZero': 'mgtbench.methods.GPTZeroDetector',

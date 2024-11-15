@@ -49,6 +49,7 @@ Currently, we support the following methods (continuous updating):
     - DetectGPT [[Ref]](https://arxiv.org/abs/2301.11305);
     - LRR [[Ref]](https://arxiv.org/abs/2306.05540);
     - NPR [[Ref]](https://arxiv.org/abs/2306.05540);
+    - Fast-DetectGPT [[Ref]](https://arxiv.org/abs/2310.05130);
 - Model-based methods:
     - OpenAI Detector [[Ref]](https://arxiv.org/abs/1908.09203);
     - ChatGPT Detector [[Ref]](https://arxiv.org/abs/2301.07597);

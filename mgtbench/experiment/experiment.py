@@ -8,7 +8,7 @@ from dataclasses import dataclass, fields, asdict
 
 
 class ThresholdExperiment(BaseExperiment):
-    _ALLOWED_detector = ['ll', 'rank', 'rankGLTR', 'entropy']
+    _ALLOWED_detector = ['ll', 'rank', 'LRR', 'rankGLTR', 'entropy']
 
     def __init__(self, detector, **kargs) -> None:
         super().__init__()
@@ -47,6 +47,7 @@ class PerturbConfig:
     n_perturbation_rounds:int = 1
     n_perturbations:int = 10
     criterion:str = 'd'
+    seed: int = 0
 
     def update(self, kargs):
         for field in fields(self):
@@ -68,7 +69,7 @@ class PerturbExperiment(BaseExperiment):
         n_perturbations:int = 10
         criterion:str = 'd'
     '''
-    _ALLOWED_detector = ['detectGPT', 'NPR', 'LRR' ]
+    _ALLOWED_detector = ['detectGPT', 'NPR', 'fast-detectGPT']
     def __init__(self, detector, **kargs) -> None:
         super().__init__()
         self.detector = [detector] if isinstance(detector, PerturbBasedDetector) else detector

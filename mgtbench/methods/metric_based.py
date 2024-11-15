@@ -50,7 +50,6 @@ class MetricBasedDetector(BaseDetector):
             raise ValueError('Expect PreTrainedModel, PreTrainedTokenizer, got', type(self.model), type(self.tokenizer))
         
 
-
 class LLDetector(MetricBasedDetector):
     def __init__(self, name, **kargs) -> None:
         super().__init__(name,**kargs)
@@ -110,6 +109,17 @@ class RankDetector(MetricBasedDetector):
                 ranks = torch.log(ranks)
             result.append(ranks.float().mean().item())
         return result if isinstance(text, list) else result[0]       
+
+
+class LRRDetector(LLDetector, RankDetector):
+    def __init__(self, name, **kargs) -> None:
+        RankDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
+        LLDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
+
+    def detect(self, text, label, kargs):
+        p_rank_origin = np.array(RankDetector.detect(self, text, log=True))
+        p_ll_origin = np.array(LLDetector.detect(self, text))
+        return p_ll_origin/p_rank_origin
 
 
 class RankGLTRDetector(MetricBasedDetector):

@@ -206,7 +206,9 @@ class PerturbBasedDetector(BaseDetector):
         mask_model_name_or_path = kargs.get('mask_model_name_or_path', None)
         if not model_name_or_path or not mask_model_name_or_path :
             raise ValueError('You should pass the model_name_or_path and mask_model_name_or_path, but ',model_name_or_path,mask_model_name_or_path, 'are given')
+        # scoring/source model
         self.model, self.tokenizer = load_pretrained(model_name_or_path)
+        # mask filling model
         self.mask_model, self.mask_tokenizer = load_pretrained_mask(mask_model_name_or_path)
         self.ceil_pct = kargs.get('ceil_pct', False)
 
@@ -269,7 +271,119 @@ class DetectGPTDetector(PerturbBasedDetector, LLDetector):
         elif perturb_config.criterion == 'z':
             predictions = (p_ll_origin - perturbed_ll_mean)/perturbed_ll_std
         return predictions
-        
+
+
+class FastDetectGPTDetector():
+    def __init__(self, name, **kargs) -> None:
+        self.name = name
+        scoring_model_name_or_path = kargs.get('scoring_model_name_or_path', None)
+        reference_model_name_or_path = kargs.get('reference_model_name_or_path', None)
+        if not scoring_model_name_or_path:
+            raise ValueError('You should pass the scoring_model_name_or_path, but ',scoring_model_name_or_path, 'are given')
+        # scoring model
+        self.scoring_model, self.scoring_tokenizer = load_pretrained(scoring_model_name_or_path)
+        self.scoring_model.eval()
+        if reference_model_name_or_path:
+            if reference_model_name_or_path != scoring_model_name_or_path:
+                self.reference_model, self.reference_tokenizer = load_pretrained(reference_model_name_or_path)
+                self.reference_model.eval()
+        if kargs.get('discrepancy_analytic', False):
+            self.criterion_fn = 'discrepancy_analytic'
+        else:
+            self.criterion_fn = 'discrepancy'
+
+    # Copyright (c) Guangsheng Bao.
+    def get_samples(self, logits, labels):
+        assert logits.shape[0] == 1
+        assert labels.shape[0] == 1
+        nsamples = 10000
+        lprobs = torch.log_softmax(logits, dim=-1)
+        distrib = torch.distributions.categorical.Categorical(logits=lprobs)
+        samples = distrib.sample([nsamples]).permute([1, 2, 0])
+        return samples
+
+    # Copyright (c) Guangsheng Bao.
+    def get_likelihood(self, logits, labels):
+        assert logits.shape[0] == 1
+        assert labels.shape[0] == 1
+        labels = labels.unsqueeze(-1) if labels.ndim == logits.ndim - 1 else labels
+        lprobs = torch.log_softmax(logits, dim=-1)
+        log_likelihood = lprobs.gather(dim=-1, index=labels)
+        return log_likelihood.mean(dim=1)
+
+    # Copyright (c) Guangsheng Bao.
+    def get_sampling_discrepancy(self, logits_ref, logits_score, labels):
+        assert logits_ref.shape[0] == 1
+        assert logits_score.shape[0] == 1
+        assert labels.shape[0] == 1
+        if logits_ref.size(-1) != logits_score.size(-1):
+            # print(f"WARNING: vocabulary size mismatch {logits_ref.size(-1)} vs {logits_score.size(-1)}.")
+            vocab_size = min(logits_ref.size(-1), logits_score.size(-1))
+            logits_ref = logits_ref[:, :, :vocab_size]
+            logits_score = logits_score[:, :, :vocab_size]
+
+        samples = self.get_samples(logits_ref, labels)
+        log_likelihood_x = self.get_likelihood(logits_score, labels)
+        log_likelihood_x_tilde = self.get_likelihood(logits_score, samples)
+        miu_tilde = log_likelihood_x_tilde.mean(dim=-1)
+        sigma_tilde = log_likelihood_x_tilde.std(dim=-1)
+        discrepancy = (log_likelihood_x.squeeze(-1) - miu_tilde) / sigma_tilde
+        return discrepancy.item()
+
+    # Copyright (c) Guangsheng Bao.
+    def get_sampling_discrepancy_analytic(self, logits_ref, logits_score, labels):
+        assert logits_ref.shape[0] == 1
+        assert logits_score.shape[0] == 1
+        assert labels.shape[0] == 1
+        if logits_ref.size(-1) != logits_score.size(-1):
+            # print(f"WARNING: vocabulary size mismatch {logits_ref.size(-1)} vs {logits_score.size(-1)}.")
+            vocab_size = min(logits_ref.size(-1), logits_score.size(-1))
+            logits_ref = logits_ref[:, :, :vocab_size]
+            logits_score = logits_score[:, :, :vocab_size]
+
+        labels = labels.unsqueeze(-1) if labels.ndim == logits_score.ndim - 1 else labels
+        lprobs_score = torch.log_softmax(logits_score, dim=-1)
+        probs_ref = torch.softmax(logits_ref, dim=-1)
+        log_likelihood = lprobs_score.gather(dim=-1, index=labels).squeeze(-1) # get log likelihood of the correct token as in the original sequence (next token prediction)
+        mean_ref = (probs_ref * lprobs_score).sum(dim=-1) # enumerate over vocabulary
+        var_ref = (probs_ref * torch.square(lprobs_score)).sum(dim=-1) - torch.square(mean_ref) # enumerate over vocabulary
+        discrepancy = (log_likelihood.sum(dim=-1) - mean_ref.sum(dim=-1)) / var_ref.sum(dim=-1).sqrt() # mean over sequence
+        discrepancy = discrepancy.mean()
+        return discrepancy.item()
+    
+    def detect(self, text, label, config):
+        seed = config.seed
+        random.seed(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+
+        predictions = []
+        if self.criterion_fn == 'discrepency':
+            criterion_fn = self.get_sampling_discrepancy
+        else:
+            criterion_fn = self.get_sampling_discrepancy_analytic
+
+        for idx in tqdm(range(len(text)), desc="Detecting"):
+            tokenized = self.scoring_tokenizer(text[idx],
+                                               return_tensors="pt", 
+                                               padding=True, 
+                                               return_token_type_ids=False,
+                                               truncation=True,  # Truncate to max model length
+                                               ).to(self.scoring_model.device)
+            labels = tokenized.input_ids[:, 1:]
+            with torch.no_grad():
+                logits_score = self.scoring_model(**tokenized).logits[:, :-1]
+                if not hasattr(self, 'reference_model'): # reference model == scoring model
+                    logits_ref = logits_score
+                else:
+                    tokenized = self.reference_tokenizer(text[idx], return_tensors="pt", padding=True, return_token_type_ids=False).to(self.reference_model.device)
+                    assert torch.all(tokenized.input_ids[:, 1:] == labels), "Tokenizer is mismatch."
+                    logits_ref = self.reference_model(**tokenized).logits[:, :-1]
+                crit = criterion_fn(logits_ref, logits_score, labels)
+                predictions.append(crit)
+
+        return predictions        
+
 
 class NPRDetector(PerturbBasedDetector, RankDetector):
     def __init__(self, name, **kargs) -> None:
@@ -296,14 +410,6 @@ class NPRDetector(PerturbBasedDetector, RankDetector):
 
         return predictions
 
-class LRRDetector(PerturbBasedDetector, LLDetector, RankDetector):
-    def __init__(self, name, **kargs) -> None:
-        PerturbBasedDetector.__init__(self,name, **kargs)
-        RankDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
-        LLDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
 
-    def detect(self, text, label, kargs):
-        p_rank_origin = np.array(RankDetector.detect(self, text, log=True))
-        p_ll_origin = np.array(LLDetector.detect(self, text))
-        return p_ll_origin/p_rank_origin
+
         
