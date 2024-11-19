@@ -2,6 +2,7 @@ from ..auto import BaseDetector
 from ..methods import LLDetector, RankDetector
 from ..loading import load_pretrained,load_pretrained_mask
 import numpy as np
+from sklearn.metrics import f1_score
 import transformers
 import re
 import torch
@@ -250,6 +251,7 @@ class DetectGPTDetector(PerturbBasedDetector, LLDetector):
     def __init__(self, name, **kargs) -> None:
         PerturbBasedDetector.__init__(self, name, **kargs)
         LLDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
+        self.threshold = None
 
     def detect(self, text, label, config):
         perturb_config = config
@@ -351,6 +353,22 @@ class FastDetectGPTDetector():
         discrepancy = discrepancy.mean()
         return discrepancy.item()
     
+    def find_threshold(self, train_scores, train_labels):
+        print(f"Finding best threshold for f1 score...")
+        thresholds = np.sort(train_scores)
+        best_threshold = None
+        best_f1 = 0
+        for threshold in thresholds:
+            # machine's score is largeer, human's score is smaller
+            predictions = train_scores > threshold
+            f1 = f1_score(train_labels, predictions)
+            if f1 > best_f1:
+                best_f1 = f1
+                best_threshold = threshold
+
+        self.threshold = best_threshold
+        return best_threshold
+    
     def detect(self, text, label, config):
         seed = config.seed
         random.seed(seed)
@@ -376,7 +394,12 @@ class FastDetectGPTDetector():
                 if not hasattr(self, 'reference_model'): # reference model == scoring model
                     logits_ref = logits_score
                 else:
-                    tokenized = self.reference_tokenizer(text[idx], return_tensors="pt", padding=True, return_token_type_ids=False).to(self.reference_model.device)
+                    tokenized = self.reference_tokenizer(text[idx],
+                                                         return_tensors="pt",
+                                                         padding=True, 
+                                                         return_token_type_ids=False,
+                                                         truncation=True
+                                                         ).to(self.reference_model.device)
                     assert torch.all(tokenized.input_ids[:, 1:] == labels), "Tokenizer is mismatch."
                     logits_ref = self.reference_model(**tokenized).logits[:, :-1]
                 crit = criterion_fn(logits_ref, logits_score, labels)
