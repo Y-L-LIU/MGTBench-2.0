@@ -8,7 +8,7 @@ from dataclasses import dataclass, fields, asdict
 
 
 class ThresholdExperiment(BaseExperiment):
-    _ALLOWED_detector = ['ll', 'rank', 'LRR', 'rankGLTR', 'entropy']
+    _ALLOWED_detector = ['ll', 'rank', 'LRR', 'rankGLTR', 'entropy', 'Binoculars']
 
     def __init__(self, detector, **kargs) -> None:
         super().__init__()
@@ -28,11 +28,21 @@ class ThresholdExperiment(BaseExperiment):
             print('Predict testing data')
             x_test, y_test = self.data_prepare(detector.detect(self.test_text), self.test_label)
             print('Run classification for results')
-            clf = LogisticRegression(random_state=0).fit(x_train, y_train)
-            train_result = self.run_clf(clf, x_train, y_train)
-            test_result = self.run_clf(clf, x_test, y_test)
+            if detector.name == 'Binoculars':
+                if detector.threshold_strategy == 'new':
+                    detector.find_threshold(x_train, y_train)
+                y_train_preds = [x < detector.threshold for x in x_train]
+                y_test_preds = [x < detector.threshold for x in x_test]
+                train_result = y_train, y_train_preds, -1 * x_train # for auc, binocular score is higher for human
+                test_result = y_test, y_test_preds, -1 * x_test
+            else:
+                clf = LogisticRegression(random_state=0).fit(x_train, y_train)
+                train_result = self.run_clf(clf, x_train, y_train)
+                test_result = self.run_clf(clf, x_test, y_test)
+
             predict_list.append({'train_pred':train_result,
                                  'test_pred':test_result})
+            
         return predict_list
 
 @dataclass
@@ -92,11 +102,20 @@ class PerturbExperiment(BaseExperiment):
             print('Predict testing data')
             x_test, y_test   = self.data_prepare(detector.detect(self.test_text, self.test_label, self.perturb_config), self.test_label)
             print('Run classification for results')
-            clf = LogisticRegression(random_state=0).fit(x_train, y_train)
-            train_result = self.run_clf(clf, x_train, y_train)
-            test_result = self.run_clf(clf, x_test, y_test)
+            if detector.name == 'fast-detectGPT':
+                detector.find_threshold(x_train, y_train)
+                y_train_preds = [x > detector.threshold for x in x_train]
+                y_test_preds = [x > detector.threshold for x in x_test]
+                train_result = y_train, y_train_preds, x_train
+                test_result = y_test, y_test_preds, x_test
+            else:
+                clf = LogisticRegression(random_state=0).fit(x_train, y_train)
+                train_result = self.run_clf(clf, x_train, y_train)
+                test_result = self.run_clf(clf, x_test, y_test)
+
             predict_list.append({'train_pred':train_result,
                                  'test_pred':test_result})
+            
         return predict_list
 
 

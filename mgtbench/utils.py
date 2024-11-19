@@ -1,4 +1,5 @@
 import transformers
+from transformers import AutoTokenizer
 import re
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 from sklearn.linear_model import LogisticRegression
@@ -140,3 +141,12 @@ def setup_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
+
+
+def assert_tokenizer_consistency(model_id_1, model_id_2):
+    identical_tokenizers = (
+            AutoTokenizer.from_pretrained(model_id_1).vocab
+            == AutoTokenizer.from_pretrained(model_id_2).vocab
+    )
+    if not identical_tokenizers:
+        raise ValueError(f"Tokenizers are not identical for {model_id_1} and {model_id_2}.")

@@ -12,6 +12,7 @@ DETECTOR_MAPPING = {
     'entropy' : 'mgtbench.methods.EntropyDetector',
     'detectGPT' : 'mgtbench.methods.DetectGPTDetector',
     'fast-detectGPT' : 'mgtbench.methods.FastDetectGPTDetector',
+    'Binoculars' : 'mgtbench.methods.BinocularsDetector',
     'NPR' : 'mgtbench.methods.NPRDetector',
     'LRR' : 'mgtbench.methods.LRRDetector',
     'GPTZero': 'mgtbench.methods.GPTZeroDetector',
