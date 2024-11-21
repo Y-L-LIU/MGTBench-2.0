@@ -1,13 +1,10 @@
 import numpy as np
-import transformers
 import torch
 from tqdm import tqdm
-from ..utils import timeit, cal_metrics
 from torch.utils.data import DataLoader
 from transformers import AdamW
 from ..auto import BaseDetector
 from ..loading import load_pretrained_supervise
-from sklearn.model_selection import train_test_split
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
 from transformers import Trainer, TrainingArguments, AdamW
 from torch.utils.data import DataLoader

@@ -2,15 +2,12 @@ from ..auto import BaseDetector
 from ..methods import LLDetector, RankDetector
 from ..loading import load_pretrained,load_pretrained_mask
 import numpy as np
-from sklearn.metrics import f1_score
-import transformers
+from sklearn.metrics import f1_score, roc_curve
 import re
 import torch
-import torch.nn.functional as F
 import random
 import time
 from tqdm import tqdm
-import warnings
 from dataclasses import dataclass
 from torch.utils.data import DataLoader
 # define regex to match all <extra_id_*> tokens, where * is an integer
@@ -253,6 +250,22 @@ class DetectGPTDetector(PerturbBasedDetector, LLDetector):
         LLDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
         self.threshold = None
 
+    def find_threshold(self, train_scores, train_labels):
+        print(f"Finding best threshold for f1 score...")
+        thresholds = np.sort(train_scores)
+        best_threshold = None
+        best_f1 = 0
+        for threshold in thresholds:
+            # machine's score is largeer, human's score is smaller
+            predictions = train_scores > threshold
+            f1 = f1_score(train_labels, predictions)
+            if f1 > best_f1:
+                best_f1 = f1
+                best_threshold = threshold
+
+        self.threshold = best_threshold
+        return best_threshold
+
     def detect(self, text, label, config):
         perturb_config = config
         print('Running perturb on the given texts')
@@ -271,10 +284,15 @@ class DetectGPTDetector(PerturbBasedDetector, LLDetector):
         if perturb_config.criterion == 'd':
             predictions = p_ll_origin - perturbed_ll_mean
         elif perturb_config.criterion == 'z':
+            perturbed_ll_std = [std if std > 0 else 1 for std in perturbed_ll_std]
             predictions = (p_ll_origin - perturbed_ll_mean)/perturbed_ll_std
         return predictions
 
 
+# Copyright (c) Guangsheng Bao.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 class FastDetectGPTDetector():
     def __init__(self, name, **kargs) -> None:
         self.name = name
@@ -294,7 +312,6 @@ class FastDetectGPTDetector():
         else:
             self.criterion_fn = 'discrepancy'
 
-    # Copyright (c) Guangsheng Bao.
     def get_samples(self, logits, labels):
         assert logits.shape[0] == 1
         assert labels.shape[0] == 1
@@ -304,7 +321,6 @@ class FastDetectGPTDetector():
         samples = distrib.sample([nsamples]).permute([1, 2, 0])
         return samples
 
-    # Copyright (c) Guangsheng Bao.
     def get_likelihood(self, logits, labels):
         assert logits.shape[0] == 1
         assert labels.shape[0] == 1
@@ -332,7 +348,6 @@ class FastDetectGPTDetector():
         discrepancy = (log_likelihood_x.squeeze(-1) - miu_tilde) / sigma_tilde
         return discrepancy.item()
 
-    # Copyright (c) Guangsheng Bao.
     def get_sampling_discrepancy_analytic(self, logits_ref, logits_score, labels):
         assert logits_ref.shape[0] == 1
         assert logits_score.shape[0] == 1
@@ -434,5 +449,183 @@ class NPRDetector(PerturbBasedDetector, RankDetector):
         return predictions
 
 
+# Copyright (c) Guangsheng Bao.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+class DNAGPTDetector(BaseDetector):
+    def __init__(self,name, **kargs) -> None:
+        self.name = 'DNA-GPT'
+        self.sampler = self.PrefixSampler(**kargs)
+        self.mode = kargs.get('mode', 'accuracy')
 
+    class PrefixSampler:
+        def __init__(self, **kargs):
+            self.base_model_name_or_path = kargs.get('base_model_name_or_path', 'gpt2')
+            self.batch_size = kargs.get('batch_size', 5)
+            self.regen_number = kargs.get('regen_number', 5)
+            self.temperature = kargs.get('temperature', 1.0)
+            self.truncate_ratio = kargs.get('truncate_ratio', 0.5)
+            # self.top_p = kargs.get('top_p', 0.96)
+            # self.top_k = kargs.get('top_k', 40)
+
+            self.base_model, self.base_tokenizer = load_pretrained(model_name_or_path=self.base_model_name_or_path)
+            self.base_model.eval()
+            
+        def _sample_from_model(self, texts, min_words=55, truncate_ratio=0.5):
+            # encode each text as a list of token ids
+            texts = [t.split(' ') for t in texts]
+            # otherwise the entire length exceeds the maximum length
+            texts = [t if len(t) <= 1024 else t[:1024] for t in texts]
+            texts = [' '.join(t[: int(len(t) * truncate_ratio)]) for t in texts]
+            all_encoded = self.base_tokenizer(texts, 
+                                              return_tensors="pt", 
+                                              padding=True,
+                                              truncation=True,
+                                              ).to(self.base_model.device)
+
+            decoded = ['' for _ in range(len(texts))]
+            # sample from the model until we get a sample with at least min_words words for each example
+            # this is an inefficient way to do this (since we regenerate for all inputs if just one is too short), but it works
+            tries = 0
+            m = 0
+            while m < min_words:
+                if tries != 0:
+                    print()
+                    print(f"min words: {m}, needed {min_words}, regenerating (try {tries})")
+
+                sampling_kwargs = {'temperature': self.temperature}
+                min_length = 150
+                outputs = self.base_model.generate(**all_encoded, min_length=min_length, max_length=1024, do_sample=True,
+                                                **sampling_kwargs, pad_token_id=self.base_tokenizer.eos_token_id,
+                                                eos_token_id=self.base_tokenizer.eos_token_id)
+                decoded = self.base_tokenizer.batch_decode(outputs, skip_special_tokens=True)
+                m = min(len(x.split()) for x in decoded)
+                tries += 1
+
+            return decoded
+
+        def generate_samples(self, raw_data, batch_size):
+            # trim to shorter length
+            def _trim_to_shorter_length(texta, textb):
+                # truncate to shorter of o and s
+                shorter_length = min(len(texta.split(' ')), len(textb.split(' ')))
+                texta = ' '.join(texta.split(' ')[:shorter_length])
+                textb = ' '.join(textb.split(' ')[:shorter_length])
+                return texta, textb
+
+            def _truncate_to_substring(text, substring, idx_occurrence):
+                # truncate everything after the idx_occurrence occurrence of substring
+                assert idx_occurrence > 0, 'idx_occurrence must be > 0'
+                idx = -1
+                for _ in range(idx_occurrence):
+                    idx = text.find(substring, idx + 1)
+                    if idx == -1:
+                        return text
+                return text[:idx]
+
+            data = {
+                "original": [],
+                "sampled": [],
+            }
+
+            assert len(raw_data) % batch_size == 0
+
+            for batch in range(len(raw_data) // batch_size):
+                # print('Generating samples for batch', batch, 'of', len(raw_data) // batch_size)
+                original_text = raw_data[batch * batch_size:(batch + 1) * batch_size]
+                sampled_text = self._sample_from_model(original_text, min_words=55, truncate_ratio=self.truncate_ratio)
+
+                for o, s in zip(original_text, sampled_text):
+                    o, s = _trim_to_shorter_length(o, s)
+
+                    # add to the data
+                    data["original"].append(o)
+                    data["sampled"].append(s)
+
+            return data
+
+    def get_likelihood(self, logits, labels, pad_index):
+        labels = labels.unsqueeze(-1) if labels.ndim == logits.ndim - 1 else labels
+        lprobs = torch.log_softmax(logits, dim=-1)
+        log_likelihood = lprobs.gather(dim=-1, index=labels)
+        mask = labels != pad_index
+        log_likelihood = (log_likelihood * mask).sum(dim=1) / mask.sum(dim=1)
+        return log_likelihood.squeeze(-1)
+
+    def get_log_prob(self, text):
+        tokenized = self.sampler.base_tokenizer(text, 
+                                                return_tensors="pt", 
+                                                padding=True,
+                                                truncation=True
+                                                ).to(self.sampler.base_model.device)
+        labels = tokenized.input_ids[:, 1:]
+        with torch.no_grad():
+            logits_score = self.sampler.base_model(**tokenized).logits[:, :-1]
+            return self.get_likelihood(logits_score, labels, self.sampler.base_tokenizer.pad_token_id)
+
+    def get_log_probs(self, texts):
+        batch_size = self.sampler.batch_size
+        batch_lprobs = []
+        for batch in range(len(texts) // batch_size):
+            tokenized = self.sampler.base_tokenizer(texts[batch * batch_size:(batch + 1) * batch_size],
+                                                     return_tensors="pt", 
+                                                     padding=True,
+                                                     truncation=True,
+                                                     ).to(self.sampler.base_model.device)
+            labels = tokenized.input_ids[:, 1:]
+            with torch.no_grad():
+                logits_score = self.sampler.base_model(**tokenized).logits[:, :-1]
+                lprobs = self.get_likelihood(logits_score, labels, self.sampler.base_tokenizer.pad_token_id)
+                batch_lprobs.append(lprobs)
+        return torch.cat(batch_lprobs, dim=0)
+
+    def get_regen_samples(self, text):
+        data = [text] * self.sampler.regen_number
+        data = self.sampler.generate_samples(data, batch_size=self.sampler.batch_size)
+        return data['sampled']
+
+    def get_dna_gpt_score(self, text):
+        lprob = self.get_log_prob(text)
+        regens = self.get_regen_samples(text)
+        lprob_regens = self.get_log_probs(regens)
+        wscore = lprob[0] - lprob_regens.mean()
+        return wscore.item()
+    
+    def find_threshold(self, train_scores, train_labels):
+        # Sort scores to get possible threshold values
+        print(f"Finding best threshold for {self.mode}...")
+        thresholds = np.sort(train_scores)
+        best_threshold = None
+        best_accuracy = 0
+        if self.mode == "low-fpr":
+            scores = train_scores
+            fpr, tpr, roc_thresholds = roc_curve(train_labels, scores)
+            # Find the threshold where FPR is closest to 1%
+            target_fpr = 0.01
+            idx = np.where(fpr <= target_fpr)[0][-1]  # Closest index where FPR <= 1%
+            self.threshold = roc_thresholds[idx]
+
+        elif self.mode == "accuracy":
+            for t in thresholds:
+                predictions = train_scores > t
+                accuracy = f1_score(train_labels, predictions)
+                if accuracy > best_accuracy:
+                    best_accuracy = accuracy
+                    best_threshold = t
+
+            self.threshold = best_threshold
+        return best_threshold, best_accuracy
+
+    def change_mode(self, mode):
+        if mode not in ["low-fpr", "accuracy"]:
+            raise ValueError(f"Invalid mode: {mode}")
+        self.mode = mode
+
+    def detect(self, text, label, config):
+        predictions = []
+        for idx in tqdm(range(len(text)), desc="Detecting"):
+            dna_gpt_score = self.get_dna_gpt_score(text[idx])
+            predictions.append(dna_gpt_score)
+        return predictions
         

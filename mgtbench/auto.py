@@ -13,9 +13,11 @@ DETECTOR_MAPPING = {
     'detectGPT' : 'mgtbench.methods.DetectGPTDetector',
     'fast-detectGPT' : 'mgtbench.methods.FastDetectGPTDetector',
     'Binoculars' : 'mgtbench.methods.BinocularsDetector',
+    'DNA-GPT' : 'mgtbench.methods.DNAGPTDetector',
     'NPR' : 'mgtbench.methods.NPRDetector',
     'LRR' : 'mgtbench.methods.LRRDetector',
     'GPTZero': 'mgtbench.methods.GPTZeroDetector',
+    'RADAR': 'mgtbench.methods.RadarDetector',
     'OpenAI-D':'mgtbench.methods.SupervisedDetector',
     'ConDA':'mgtbench.methods.SupervisedDetector',
     'ChatGPT-D':'mgtbench.methods.SupervisedDetector',
@@ -93,7 +95,10 @@ class BaseExperiment(ABC):
             precision = precision_score(label, pred_label)
             recall = recall_score(label, pred_label)
             f1 = f1_score(label, pred_label)
-            auc = roc_auc_score(label, pred_posteriors)
+            if sum(label) > 0 and sum(label) < len(label):
+                auc = roc_auc_score(label, pred_posteriors)
+            else:
+                auc = -1.0
             return Metric(acc, precision, recall, f1, auc)
         else:
             acc = accuracy_score(label, pred_label)
