@@ -8,7 +8,7 @@ from dataclasses import dataclass, fields, asdict
 
 
 class ThresholdExperiment(BaseExperiment):
-    _ALLOWED_detector = ['ll', 'rank', 'LRR', 'rankGLTR', 'entropy', 'Binoculars']
+    _ALLOWED_detector = ['ll', 'rank', 'LRR', 'rank_GLTR', 'entropy', 'Binoculars']
 
     def __init__(self, detector, **kargs) -> None:
         super().__init__()
@@ -23,10 +23,22 @@ class ThresholdExperiment(BaseExperiment):
             if detector.name not in self._ALLOWED_detector:
                 print(detector.name, 'is not for this experiment')
                 continue
-            print('Predict training data')
-            x_train, y_train = self.data_prepare(detector.detect(self.train_text), self.train_label)
-            print('Predict testing data')
-            x_test, y_test = self.data_prepare(detector.detect(self.test_text), self.test_label)
+            
+            if detector.name in ['rank_GLTR']:
+                print('Predict training data')
+                x_train, y_train = detector.detect(self.train_text), self.train_label
+                x_train = np.array(x_train)
+                y_train = np.array(y_train)
+                print('Predict testing data')
+                x_test, y_test = detector.detect(self.test_text), self.test_label
+                x_test = np.array(x_test)
+                y_test = np.array(y_test)
+            else:
+                print('Predict training data')
+                x_train, y_train = self.data_prepare(detector.detect(self.train_text), self.train_label)
+                print('Predict testing data')
+                x_test, y_test = self.data_prepare(detector.detect(self.test_text), self.test_label)
+                
             print('Run classification for results')
             if detector.name in ['Binoculars']:
                 if detector.threshold_strategy == 'new':

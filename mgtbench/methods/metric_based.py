@@ -76,7 +76,7 @@ class LLDetector(MetricBasedDetector):
  
 class RankDetector(MetricBasedDetector):
     def __init__(self,name, **kargs) -> None:
-        super().__init__(name,**kargs)
+        super().__init__(name, **kargs)
 
     def detect(self, text, **kargs):
         result = []
@@ -113,12 +113,12 @@ class RankDetector(MetricBasedDetector):
         return result if isinstance(text, list) else result[0]       
 
 
-class LRRDetector(LLDetector, RankDetector):
+class LRRDetector(RankDetector, LLDetector):
     def __init__(self, name, **kargs) -> None:
-        RankDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
-        LLDetector.__init__(self,name,model=self.model, tokenizer = self.tokenizer)
+        RankDetector.__init__(self, name, **kargs)
+        LLDetector.__init__(self, name, model=self.model, tokenizer = self.tokenizer)
 
-    def detect(self, text, label, kargs):
+    def detect(self, text):
         p_rank_origin = np.array(RankDetector.detect(self, text, log=True))
         p_ll_origin = np.array(LLDetector.detect(self, text))
         return p_ll_origin/p_rank_origin
@@ -169,7 +169,8 @@ class RankGLTRDetector(MetricBasedDetector):
             if res.sum() > 0:
                 res = res / res.sum()
             result.append(res)
-        return result if isinstance(text, list) else result[0]       
+            
+        return result if isinstance(text, list) else result[0]
 
 
 class EntropyDetector(MetricBasedDetector):
