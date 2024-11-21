@@ -28,7 +28,7 @@ class ThresholdExperiment(BaseExperiment):
             print('Predict testing data')
             x_test, y_test = self.data_prepare(detector.detect(self.test_text), self.test_label)
             print('Run classification for results')
-            if detector.name == 'Binoculars':
+            if detector.name in ['Binoculars']:
                 if detector.threshold_strategy == 'new':
                     detector.find_threshold(x_train, y_train)
                 y_train_preds = [x < detector.threshold for x in x_train]
@@ -56,7 +56,7 @@ class PerturbConfig:
     random_fills_tokens:bool = False
     n_perturbation_rounds:int = 1
     n_perturbations:int = 10
-    criterion:str = 'd'
+    criterion:str = 'z'
     seed: int = 0
 
     def update(self, kargs):
@@ -79,7 +79,7 @@ class PerturbExperiment(BaseExperiment):
         n_perturbations:int = 10
         criterion:str = 'd'
     '''
-    _ALLOWED_detector = ['detectGPT', 'NPR', 'fast-detectGPT']
+    _ALLOWED_detector = ['detectGPT', 'NPR', 'fast-detectGPT', 'DNA-GPT']
     def __init__(self, detector, **kargs) -> None:
         super().__init__()
         self.detector = [detector] if isinstance(detector, PerturbBasedDetector) else detector
@@ -102,7 +102,7 @@ class PerturbExperiment(BaseExperiment):
             print('Predict testing data')
             x_test, y_test   = self.data_prepare(detector.detect(self.test_text, self.test_label, self.perturb_config), self.test_label)
             print('Run classification for results')
-            if detector.name == 'fast-detectGPT':
+            if detector.name in ['fast-detectGPT',  'DNA-GPT']:
                 detector.find_threshold(x_train, y_train)
                 y_train_preds = [x > detector.threshold for x in x_train]
                 y_test_preds = [x > detector.threshold for x in x_test]
@@ -146,7 +146,7 @@ class SupervisedExperiment(BaseExperiment):
         epochs:int=3
         save_path:str='finetuned/'
     '''
-    _ALLOWED_detector = ['OpenAI-D', 'ConDA', 'ChatGPT-D', "LM-D" ]
+    _ALLOWED_detector = ['OpenAI-D', 'ConDA', 'ChatGPT-D', "LM-D", 'RADAR' ]
     def __init__(self, detector, **kargs) -> None:
         super().__init__()
         self.detector = [detector] if isinstance(detector, SupervisedDetector) else detector
