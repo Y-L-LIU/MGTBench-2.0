@@ -40,13 +40,32 @@ class ThresholdExperiment(BaseExperiment):
                 x_test, y_test = self.data_prepare(detector.detect(self.test_text), self.test_label)
                 
             print('Run classification for results')
-            if detector.name in ['Binoculars']:
-                if detector.threshold_strategy == 'new':
+            criterion = config.get('criterion', 'logistic')
+            assert criterion in ['logistic', 'threshold']
+            print('Prediction criterion:', criterion)
+
+            if criterion == 'threshold':
+                assert detector.name in ['Binoculars', 'rank', 'll', 'LRR', 'entropy']
+                if detector.name in ['Binoculars']:
                     detector.find_threshold(x_train, y_train)
-                y_train_preds = [x < detector.threshold for x in x_train]
-                y_test_preds = [x < detector.threshold for x in x_test]
-                train_result = y_train, y_train_preds, -1 * x_train # for auc, binocular score is higher for human
-                test_result = y_test, y_test_preds, -1 * x_test
+                    y_train_preds = [x < detector.threshold for x in x_train]
+                    y_test_preds = [x < detector.threshold for x in x_test]
+                    train_result = y_train, y_train_preds, -1 * x_train # for auc, binocular score is higher for human
+                    test_result = y_test, y_test_preds, -1 * x_test
+
+                elif detector.name in ['rank', 'll', 'LRR', 'entropy']:
+                    detector.find_threshold(x_train, y_train)
+                    if detector.name in ['rank', 'LRR', 'entropy']:
+                        y_train_preds = [x < detector.threshold for x in x_train]
+                        y_test_preds = [x < detector.threshold for x in x_test]
+                        train_result = y_train, y_train_preds, -1 * x_train # human has higher score
+                        test_result = y_test, y_test_preds, -1 * x_test
+
+                    elif detector.name in ['ll']:
+                        y_train_preds = [x > detector.threshold for x in x_train]
+                        y_test_preds = [x > detector.threshold for x in x_test]
+                        train_result = y_train, y_train_preds, x_train
+                        test_result = y_test, y_test_preds, x_test
             else:
                 clf = LogisticRegression(random_state=0).fit(x_train, y_train)
                 train_result = self.run_clf(clf, x_train, y_train)
@@ -68,7 +87,7 @@ class PerturbConfig:
     random_fills_tokens:bool = False
     n_perturbation_rounds:int = 1
     n_perturbations:int = 10
-    criterion:str = 'z'
+    criterion_score:str = 'z'
     seed: int = 0
 
     def update(self, kargs):
@@ -114,12 +133,18 @@ class PerturbExperiment(BaseExperiment):
             print('Predict testing data')
             x_test, y_test   = self.data_prepare(detector.detect(self.test_text, self.test_label, self.perturb_config), self.test_label)
             print('Run classification for results')
-            if detector.name in ['fast-detectGPT',  'DNA-GPT']:
-                detector.find_threshold(x_train, y_train)
-                y_train_preds = [x > detector.threshold for x in x_train]
-                y_test_preds = [x > detector.threshold for x in x_test]
-                train_result = y_train, y_train_preds, x_train
-                test_result = y_test, y_test_preds, x_test
+
+            criterion = kargs.get('criterion', 'logistic')
+            assert criterion in ['logistic', 'threshold']
+            print('Prediction criterion:', criterion)
+
+            if criterion == 'threshold':
+                if detector.name in ['NPR', 'fast-detectGPT', 'DNA-GPT', 'detectGPT']:
+                    detector.find_threshold(x_train, y_train)
+                    y_train_preds = [x > detector.threshold for x in x_train]
+                    y_test_preds = [x > detector.threshold for x in x_test]
+                    train_result = y_train, y_train_preds, x_train
+                    test_result = y_test, y_test_preds, x_test
             else:
                 clf = LogisticRegression(random_state=0).fit(x_train, y_train)
                 train_result = self.run_clf(clf, x_train, y_train)

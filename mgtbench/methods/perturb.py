@@ -281,9 +281,9 @@ class DetectGPTDetector(PerturbBasedDetector, LLDetector):
             perturbed_ll_mean.append(np.mean(batch))
             perturbed_ll_std.append(np.std(batch) if len(batch)>1 else 1)
         assert len(p_ll_origin) == len(perturbed_ll_mean)
-        if perturb_config.criterion == 'd':
+        if perturb_config.criterion_score == 'd':
             predictions = p_ll_origin - perturbed_ll_mean
-        elif perturb_config.criterion == 'z':
+        elif perturb_config.criterion_score == 'z':
             perturbed_ll_std = [std if std > 0 else 1 for std in perturbed_ll_std]
             predictions = (p_ll_origin - perturbed_ll_mean)/perturbed_ll_std
         return predictions
@@ -442,7 +442,7 @@ class NPRDetector(PerturbBasedDetector, RankDetector):
         for batch in DataLoader(p_rank, batch_size=perturb_config.n_perturbations):
             batch = batch.numpy()
             perturbed_rank_mean.append(np.mean(batch))
-        print(len(p_rank_origin), len(perturbed_rank_mean))
+        # print(len(p_rank_origin), len(perturbed_rank_mean))
         assert len(p_rank_origin) == len(perturbed_rank_mean)
         predictions = perturbed_rank_mean/p_rank_origin
 

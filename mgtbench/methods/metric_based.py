@@ -54,7 +54,7 @@ class MetricBasedDetector(BaseDetector):
 
 class LLDetector(MetricBasedDetector):
     def __init__(self, name, **kargs) -> None:
-        super().__init__(name,**kargs)
+        super().__init__(name, **kargs)
 
 
     def detect(self, text, **kargs):
@@ -72,10 +72,24 @@ class LLDetector(MetricBasedDetector):
                 labels = tokenized.input_ids
                 result.append( -self.model(**tokenized, labels=labels).loss.item())
         return result if isinstance(text, list) else result[0]
-        
+    
+    def find_threshold(self, train_scores, train_labels):
+        # Sort scores to get possible threshold values
+        print("Finding best threshold for f1...")
+        thresholds = np.sort(train_scores)
+        best_threshold = None
+        best_accuracy = 0
+        for t in thresholds:
+            predictions = (train_scores > t).astype(int)
+            accuracy = accuracy_score(train_labels, predictions)
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_threshold = t
+        self.threshold = best_threshold
+        return best_threshold, best_accuracy
  
 class RankDetector(MetricBasedDetector):
-    def __init__(self,name, **kargs) -> None:
+    def __init__(self, name, **kargs) -> None:
         super().__init__(name, **kargs)
 
     def detect(self, text, **kargs):
@@ -110,7 +124,22 @@ class RankDetector(MetricBasedDetector):
             if log:
                 ranks = torch.log(ranks)
             result.append(ranks.float().mean().item())
-        return result if isinstance(text, list) else result[0]       
+        return result if isinstance(text, list) else result[0]
+
+    def find_threshold(self, train_scores, train_labels):
+        # Sort scores to get possible threshold values
+        print("Finding best threshold for f1...")
+        thresholds = np.sort(train_scores)
+        best_threshold = None
+        best_accuracy = 0
+        for t in thresholds:
+            predictions = (train_scores < t).astype(int)
+            accuracy = accuracy_score(train_labels, predictions)
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_threshold = t
+        self.threshold = best_threshold
+        return best_threshold, best_accuracy
 
 
 class LRRDetector(RankDetector, LLDetector):
@@ -122,6 +151,21 @@ class LRRDetector(RankDetector, LLDetector):
         p_rank_origin = np.array(RankDetector.detect(self, text, log=True))
         p_ll_origin = np.array(LLDetector.detect(self, text))
         return p_ll_origin/p_rank_origin
+
+    def find_threshold(self, train_scores, train_labels):
+        # Sort scores to get possible threshold values
+        print("Finding best threshold for f1...")
+        thresholds = np.sort(train_scores)
+        best_threshold = None
+        best_accuracy = 0
+        for t in thresholds:
+            predictions = (train_scores < t).astype(int)
+            accuracy = accuracy_score(train_labels, predictions)
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_threshold = t
+        self.threshold = best_threshold
+        return best_threshold, best_accuracy
 
 
 class RankGLTRDetector(MetricBasedDetector):
@@ -193,6 +237,21 @@ class EntropyDetector(MetricBasedDetector):
                 result.append( -neg_entropy.sum(-1).mean().item())
         return result if isinstance(text, list) else result[0]
 
+    def find_threshold(self, train_scores, train_labels):
+        # Sort scores to get possible threshold values
+        print("Finding best threshold for f1...")
+        thresholds = np.sort(train_scores)
+        best_threshold = None
+        best_accuracy = 0
+        for t in thresholds:
+            predictions = (train_scores < t).astype(int)
+            accuracy = accuracy_score(train_labels, predictions)
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_threshold = t
+        self.threshold = best_threshold
+        return best_threshold, best_accuracy
+
 
 class BinocularsDetector(BaseDetector):
     def __init__(self,name, **kargs) -> None:
@@ -217,14 +276,14 @@ class BinocularsDetector(BaseDetector):
         self.performer_model.eval()
 
         # selected using Falcon-7B and Falcon-7B-Instruct at bfloat16
-        BINOCULARS_ACCURACY_THRESHOLD = 0.9015310749276843  # optimized for f1-score
-        BINOCULARS_FPR_THRESHOLD = 0.8536432310785527  # optimized for low-fpr [chosen at 0.01%]
+        self.BINOCULARS_ACCURACY_THRESHOLD = 0.9015310749276843  # optimized for f1-score
+        self.BINOCULARS_FPR_THRESHOLD = 0.8536432310785527  # optimized for low-fpr [chosen at 0.01%]
         mode = kargs.get('mode', "accuracy")
         self.mode = mode
         if mode == "low-fpr":
-            self.threshold = BINOCULARS_FPR_THRESHOLD
+            self.threshold = self.BINOCULARS_FPR_THRESHOLD
         elif mode == "accuracy":
-            self.threshold = BINOCULARS_ACCURACY_THRESHOLD
+            self.threshold = self.BINOCULARS_ACCURACY_THRESHOLD
         else:
             raise ValueError(f"Invalid mode: {mode}")
         self.threshold_strategy = kargs.get('threshold', 'default')
@@ -321,6 +380,10 @@ class BinocularsDetector(BaseDetector):
     def find_threshold(self, train_scores, train_labels):
         # Sort scores to get possible threshold values
         print(f"Finding best threshold for {self.mode}...")
+        if self.threshold_strategy == 'default':
+            assert self.threshold == self.BINOCULARS_ACCURACY_THRESHOLD or self.threshold == self.BINOCULARS_FPR_THRESHOLD
+            return self.threshold
+        
         thresholds = np.sort(train_scores)
         best_threshold = None
         best_accuracy = 0
@@ -341,7 +404,7 @@ class BinocularsDetector(BaseDetector):
                     best_threshold = t
 
             self.threshold = best_threshold
-        return best_threshold, best_accuracy
+        return best_threshold
 
     def change_mode(self, mode):
         if mode not in ["low-fpr", "accuracy"]:
