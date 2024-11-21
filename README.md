@@ -49,6 +49,7 @@ Currently, we support the following methods (continuous updating):
     - DetectGPT [[Ref]](https://arxiv.org/abs/2301.11305);
     - LRR [[Ref]](https://arxiv.org/abs/2306.05540);
     - NPR [[Ref]](https://arxiv.org/abs/2306.05540);
+    - DNA-GPT [[Ref]](https://arxiv.org/abs/2305.17359);
     - Fast-DetectGPT [[Ref]](https://arxiv.org/abs/2310.05130);
     - Binoculars [[Ref]](https://arxiv.org/abs/2401.12070);
 - Model-based methods:
@@ -56,6 +57,7 @@ Currently, we support the following methods (continuous updating):
     - ChatGPT Detector [[Ref]](https://arxiv.org/abs/2301.07597);
     - ConDA [[Ref]](https://arxiv.org/abs/2309.03992) [[Model Weights]](https://www.dropbox.com/s/sgwiucl1x7p7xsx/fair_wmt19_chatgpt_syn_rep_loss1.pt?dl=0);
     - GPTZero [[Ref]](https://gptzero.me/);
+    - RADAR [[Ref]](https://arxiv.org/abs/2307.03838);
     - LM Detector [[Ref]](https://arxiv.org/abs/1911.00650);
 
 ## Supported Datasets
