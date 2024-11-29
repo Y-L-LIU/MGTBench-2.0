@@ -9,6 +9,8 @@ from ..auto import BaseDetector
 from transformers import Trainer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import numpy as np
+from transformers import DistilBertPreTrainedModel, RobertaPreTrainedModel
 from transformers import Trainer, TrainingArguments, AdamW
 class ContinualDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels, new_class):
@@ -62,6 +64,7 @@ class IncrementalModel(nn.Module):
         super().__init__()
         self.pretrained, self.tokenizer = load_pretrained_supervise(model_name_or_path, kargs)
         self.lwf_reg = kargs.get('lwf_reg', 0.5)
+        self.cache_size = kargs.get('cache_size', 100)
         print(f'lwf_reg is {self.lwf_reg}')
         # self.classifier = self.pretrained.classifier if hasattr(self.pretrained, "classifier") else self.pretrained.fc
         if hasattr(self.pretrained, "classifier"):
@@ -79,7 +82,10 @@ class IncrementalModel(nn.Module):
     def set_head(self, new_classifier, new_out_features):
         setattr(self.pretrained, 'num_labels', new_out_features)
         # Set the new classifier back to the model and update class counts
-        setattr(self.pretrained, self.classifier_attr, new_classifier)
+        if isinstance(self.pretrained, DistilBertPreTrainedModel):
+            setattr(self.pretrained, 'classifier', new_classifier)
+        elif isinstance(self.pretrained, RobertaPreTrainedModel):
+            setattr(self.pretrained.classifier, 'out_proj', new_classifier)
 
     def forward(self, *args, **kwargs):
         return self.pretrained(*args, **kwargs)
@@ -105,7 +111,10 @@ class IncrementalModel(nn.Module):
     def increment_classes(self, new_classes, copy_prev=False):
         """Expand the classification head to accommodate new classes while retaining previous weights."""
         self._prev_model = self.pretrained
-        classifier = getattr(self.pretrained, self.classifier_attr)  # Get the classifier dynamically
+        if isinstance(self.pretrained, DistilBertPreTrainedModel):
+            classifier = getattr(self.pretrained, 'classifier')
+        elif isinstance(self.pretrained, RobertaPreTrainedModel):
+            classifier = getattr(self.pretrained.classifier, 'out_proj')
         # print(classifier)
         new_out_features = classifier.out_features + new_classes if self.n_classes > 0 else new_classes
         new_classifier = self.initialize_head(classifier, new_out_features)
@@ -167,13 +176,67 @@ class IncrementalDetector(BaseDetector):
 
         return result if isinstance(text, list) else result[0]
 
-    def get_dataset(self, stage_data):
-        encodings = self.tokenizer(stage_data['text'], truncation=True, padding=True)
+    def get_dataset(self, stage_data, exampler=None,return_exampler=False):
         unique_elements = set(stage_data['label'])
         num_newclass = len(unique_elements)
-        dataset = ContinualDataset(encodings, stage_data['label'], num_newclass)
-        return dataset
+        if exampler:
+            stage_data['text'] = list(stage_data['text']) + list(exampler['text'])
+            stage_data['label'] = list(stage_data['label']) + list(exampler['label'])
+        encodings = self.tokenizer(stage_data['text'], truncation=True, padding=True)
+        if return_exampler and self.model.cache_size!=0:
+            print('construct the exampler for current class')
+            exampler_idx = self.construct_exampler(stage_data, cache_size=self.model.cache_size)
+            exampler = {'text':np.array(stage_data['text'])[exampler_idx], 'label':np.array(stage_data['label'])[exampler_idx]}
+            print(f'Get exampler of {len(exampler_idx)} training data')
 
+        dataset = ContinualDataset(encodings, stage_data['label'], num_newclass)
+        return dataset, exampler 
+
+
+    # Step 1: Extract features for each sample
+    def construct_exampler(self, stage_data, cache_size=100):
+        features = []
+        labels = []
+        print(len(stage_data['text']), len(stage_data['label']))
+        for data in tqdm(stage_data['text']):
+            encoding = self.tokenizer(data, return_tensors='pt', padding=True, truncation=True, max_length=512)
+            with torch.no_grad():
+                # print(data, dataset[0])
+                # encoding = {'input_ids':data.input_ids.to('cuda'), 
+                #             'attention_mask':data.attention_mask.to('cuda')}
+                outputs = self.model(**encoding.to('cuda'), output_hidden_states=True) 
+                cls_embedding = outputs.hidden_states[-1][:, 0, :]
+            features.append(cls_embedding.cpu().squeeze().numpy())
+        labels = stage_data['label']
+        features = np.array(features)
+        from sklearn.metrics.pairwise import cosine_distances
+        class_means = {}
+        for label in np.unique(labels):
+            class_features = features[labels == label]
+            class_mean = np.mean(class_features, axis=0)
+            class_means[label] = class_mean
+
+        # Step 3: Compute distances to the class mean for each sample
+        class_top_100 = []
+
+        for label in np.unique(labels):
+            # Get the indices and embeddings of samples in the current class
+            class_indices = np.where(labels == label)[0]
+            class_embeddings = features[class_indices]
+            
+            # Calculate distance from each sample to the class mean
+            distances = []
+            for i, embedding in zip(class_indices, class_embeddings):
+                distance = cosine_distances([embedding], [class_means[label]])[0][0]
+                distances.append((i, distance))
+            
+            # Sort by distance and select top-100 closest samples
+            distances.sort(key=lambda x: x[1])  # Sort by distance
+            top_100_for_class = distances[:cache_size]  # Select top-100 closest samples
+
+            # Store the top-100 samples for the current class
+            class_top_100.extend([i[0] for i in top_100_for_class])
+        return class_top_100
 
     def finetune(self, data, config):
         training_args = TrainingArguments(
@@ -197,9 +260,10 @@ class IncrementalDetector(BaseDetector):
         stages = data['train']
         eval_set = data['test']
         pre_lr = config.lr
+        exampler = None
         for idx, stage_data in enumerate(stages):
-            train_dataset = self.get_dataset(stage_data)
-            test_dataset = self.get_dataset(eval_set[idx])
+            train_dataset, exampler = self.get_dataset(stage_data,exampler=exampler,return_exampler=True)
+            test_dataset = self.get_dataset(eval_set[idx], exampler=None,return_exampler=False)
             print(train_dataset[0].keys())
             if idx != 0:
                 self.increment_classes(train_dataset.new_class, True)
