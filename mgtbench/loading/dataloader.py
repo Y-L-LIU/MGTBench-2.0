@@ -1,5 +1,6 @@
 import random
 import datasets
+from datasets import load_dataset
 import tqdm
 import pandas as pd
 import re
@@ -14,6 +15,27 @@ DATASETS = ['TruthfulQA', 'SQuAD1', 'NarrativeQA', "Essay", "Reuters", "WP"]
 MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini']
 
 CATEGORIES = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Computer_science', 'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 'Economy', 'Math', 'Statistics', 'Chemistry']
+
+TOPICS = ['STEM', 'Humanities', 'Social_sciences']
+
+TOPIC_MAPPING = {
+    'Physics': 'STEM',
+    'Math': 'STEM',
+    'Chemistry': 'STEM',
+    'Biology': 'STEM',
+    'Electrical_engineering': 'STEM',
+    'Computer_science': 'STEM',
+    'Statistics': 'STEM',
+    'Medicine': 'STEM',
+    'Literature': 'Humanities',
+    'History': 'Humanities',
+    'Law': 'Humanities',
+    'Art': 'Humanities',
+    'Philosophy': 'Humanities',
+    'Economy': 'Social_sciences',
+    'Management': 'Social_sciences',
+    'Education': 'Social_sciences',
+}
 
 from mgtbench.utils import setup_seed
 
@@ -208,97 +230,210 @@ def load_NarrativeQA(detectLLM):
 
 
 def load(name, detectLLM, category='Art', seed=0):
-
     if name in ['TruthfulQA', 'SQuAD1', 'NarrativeQA']:
         load_fn = globals()[f'load_{name}']
         return load_fn(detectLLM)
     elif name in ["Essay", "Reuters", "WP"]:
-
-        f = pd.read_csv(f"data/{name}_LLMs.csv")
-        a_human = f["human"].tolist()
-        a_chat = f[f'{detectLLM}'].fillna("").tolist()
-
-        res = []
-        for i in range(len(a_human)):
-            if len(a_human[i].split()) > 1 and len(a_chat[i].split()) > 1:
-                res.append([a_human[i], a_chat[i]])
-
-        data_new = {
-            'train': {
-                'text': [],
-                'label': [],
-            },
-            'test': {
-                'text': [],
-                'label': [],
-            }
-
-        }
-
-        index_list = list(range(len(res)))
-        random.seed(0)
-        random.shuffle(index_list)
-
-        total_num = len(res)
-        for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=True):
-            if i < total_num * 0.8:
-                data_partition = 'train'
-            else:
-                data_partition = 'test'
-            data_new[data_partition]['text'].append(
-                process_spaces(res[index_list[i]][0]))
-            data_new[data_partition]['label'].append(0)
-            data_new[data_partition]['text'].append(
-                process_spaces(res[index_list[i]][1]))
-            data_new[data_partition]['label'].append(1)
-
-        return data_new
-    
+        data = load_old_data(name, detectLLM)
+        return data    
     elif name == 'AITextDetect':
-        subject_human_data = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name='Human', split=category)
-        mgt_data = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name=detectLLM, split=category)
+        if category in CATEGORIES:
+            data = load_subject_data(detectLLM, category, seed)
+            return data    
+        elif category in TOPICS:
+            data = load_topic_data(detectLLM, topic=category, seed=seed)
+            return data
+        else:
+            raise ValueError(f"Unknown category: {category}")
 
-        # data mix up
-        all_data = []
-        smaller_len = min([len(subject_human_data), len(mgt_data)])
 
-        subject_human_data = subject_human_data.shuffle(seed)
-        for i in range(smaller_len): # 50:50
-            all_data.append({'text': mgt_data[i]['text'], 'label': 1})
-            all_data.append({'text': subject_human_data[i]['text'], 'label': 0})
+def load_old_data(name, detectLLM):
+    f = pd.read_csv(f"data/{name}_LLMs.csv")
+    a_human = f["human"].tolist()
+    a_chat = f[f'{detectLLM}'].fillna("").tolist()
 
-        index_list = list(range(len(all_data)))
-        random.shuffle(index_list)
+    res = []
+    for i in range(len(a_human)):
+        if len(a_human[i].split()) > 1 and len(a_chat[i].split()) > 1:
+            res.append([a_human[i], a_chat[i]])
 
-        data_new = {
-            'train': {
-                'text': [],
-                'label': [],
-            },
-            'test': {
-                'text': [],
-                'label': [],
-            }
-
+    data_new = {
+        'train': {
+            'text': [],
+            'label': [],
+        },
+        'test': {
+            'text': [],
+            'label': [],
         }
 
-        total_num = len(all_data)
-        for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=True):
-            if i < total_num * 0.8:
-                data_partition = 'train'
-            else:
-                data_partition = 'test'
-            data_new[data_partition]['text'].append(
-                process_spaces(all_data[index_list[i]]['text']))
-            data_new[data_partition]['label'].append(all_data[index_list[i]]['label'])
-        return data_new
+    }
 
-    else:
-        raise ValueError(f'Unknown dataset {name}')
+    index_list = list(range(len(res)))
+    random.seed(0)
+    random.shuffle(index_list)
+
+    total_num = len(res)
+    for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=True):
+        if i < total_num * 0.8:
+            data_partition = 'train'
+        else:
+            data_partition = 'test'
+        data_new[data_partition]['text'].append(
+            process_spaces(res[index_list[i]][0]))
+        data_new[data_partition]['label'].append(0)
+        data_new[data_partition]['text'].append(
+            process_spaces(res[index_list[i]][1]))
+        data_new[data_partition]['label'].append(1)
+
+    return data_new
+
+
+def load_subject_data(detectLLM, category, seed=0):
+    saved_data_path = f"/data_sda/zhiyuan/data_3407/{detectLLM}_{category}.json"
+    if os.path.exists(saved_data_path):
+        print('using saved data', saved_data_path)
+        with open(saved_data_path, 'r') as f:
+            data = json.load(f)
+        train_machine_cnt = sum(data['train']['label'])
+        train_human_cnt = len(data['train']['label']) - train_machine_cnt
+        test_machine_cnt = sum(data['test']['label'])
+        test_human_cnt = len(data['test']['label']) - test_machine_cnt
+        print(f"train machine: {train_machine_cnt}, train human: {train_human_cnt}")
+        print(f"test machine: {test_machine_cnt}, test human: {test_human_cnt}")
+        return data
+
+    print('loading human data')
+    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    # repo = "AITextDetect/AI_Polish_clean"
+    subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=category, cache_dir='/data1/zzy/cache/huggingface')
+
+    print('loading machine data')
+    mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=category, cache_dir='/data1/zzy/cache/huggingface')
+
+    print('data loaded')
+
+    # data mix up
+    all_data = []
+    smaller_len = min([len(subject_human_data), len(mgt_data)])
+
+    subject_human_data = subject_human_data.shuffle(seed)
+    for i in range(smaller_len): # 50:50
+        all_data.append({'text': mgt_data[i]['text'], 'label': 1})
+        all_data.append({'text': subject_human_data[i]['text'], 'label': 0})
+
+    index_list = list(range(len(all_data)))
+    random.shuffle(index_list)
+
+    data_new = {
+        'train': {
+            'text': [],
+            'label': [],
+        },
+        'test': {
+            'text': [],
+            'label': [],
+        }
+
+    }
+
+    total_num = len(all_data)
+    for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=False):
+        if i < total_num * 0.8:
+            data_partition = 'train'
+        else:
+            data_partition = 'test'
+        data_new[data_partition]['text'].append(
+            process_spaces(all_data[index_list[i]]['text']))
+        data_new[data_partition]['label'].append(all_data[index_list[i]]['label'])
+
+    if not os.path.exists(saved_data_path):
+        with open(saved_data_path, 'w') as f:
+            json.dump(data_new, f)
+
+    return data_new
+
+
+def load_topic_data(detectLLM, topic, seed=0):
+    setup_seed(seed)
+    saved_data_path = f"/data_sda/zhiyuan/data_3407/{detectLLM}_{topic}.json"
+    if os.path.exists(saved_data_path):
+        print('using saved data', saved_data_path)
+        with open(saved_data_path, 'r') as f:
+            data = json.load(f)
+        train_machine_cnt = sum(data['train']['label'])
+        train_human_cnt = len(data['train']['label']) - train_machine_cnt
+        test_machine_cnt = sum(data['test']['label'])
+        test_human_cnt = len(data['test']['label']) - test_machine_cnt
+        print(f"train machine: {train_machine_cnt}, train human: {train_human_cnt}")
+        print(f"test machine: {test_machine_cnt}, test human: {test_human_cnt}")
+        return data
+
+    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    all_data = {}
+    all_data['human'] = []
+    all_data[topic] = []
+    for subject in CATEGORIES:
+        if TOPIC_MAPPING[subject] == topic:
+            # repo = "AITextDetect/AI_Polish_clean"
+            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            all_data['human'].append(subject_human_data)
+            all_data[topic].append(mgt_data)
+    
+    # find the smallest length, balance between subjects and human/machine
+    min_len = int(1e9)
+    for i in range(len(all_data['human'])):
+        min_len = min(min_len, len(all_data['human'][i]))
+        min_len = min(min_len, len(all_data[topic][i]))
+
+    # balance the data
+    for i in range(len(all_data['human'])):
+        all_data['human'][i] = all_data['human'][i].shuffle().select(range(min_len))
+        all_data[topic][i] = all_data[topic][i].shuffle().select(range(min_len))
+
+    # data mix up
+    final_data = []
+    for i in range(len(all_data['human'])):
+        for j in range(min_len):
+            final_data.append({'text': all_data[topic][i][j]['text'], 'label': 1})
+            final_data.append({'text': all_data['human'][i][j]['text'], 'label': 0})
+
+    index_list = list(range(len(final_data)))
+    random.shuffle(index_list)
+
+    data_new = {
+        'train': {
+            'text': [],
+            'label': [],
+        },
+        'test': {
+            'text': [],
+            'label': [],
+        }
+
+    }
+
+    total_num = len(final_data)
+    ratio = 0.7
+    for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=False):
+        if i < total_num * ratio:
+            data_partition = 'train'
+        else:
+            data_partition = 'test'
+        data_new[data_partition]['text'].append(
+            process_spaces(final_data[index_list[i]]['text']))
+        data_new[data_partition]['label'].append(final_data[index_list[i]]['label'])
+
+    # if not os.path.exists(saved_data_path):
+    with open(saved_data_path, 'w') as f:
+        json.dump(data_new, f)
+
+    return data_new
 
 
 def download_data(model_name, category):
-    return datasets.load_dataset(
+    return load_dataset(
         "AITextDetect/AI_Polish_clean",
         trust_remote_code=True,
         name=model_name,
@@ -306,10 +441,11 @@ def download_data(model_name, category):
         # cache_dir=cache_dir
     )
 
+
 def prepare_attribution(category='Art', seed=0):
     setup_seed(seed)
     # human
-    subject_human_data = datasets.load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name='Human', split=category)
+    subject_human_data = load_dataset("AITextDetect/AI_Polish_clean", trust_remote_code=True, name='Human', split=category)
 
     # Prepare attribution data 
     model_data = {}
@@ -370,6 +506,110 @@ def prepare_attribution(category='Art', seed=0):
     return data
 
 
+def prepare_attribution_topic(topic='STEM', seed=0):
+    setup_seed(seed)
+    # e.g. all_data['Moonshot']['STEM'] = [list of subject data in STEM]
+    all_data = {} 
+    # all_data[model] = [list of data in each subject], for the given topic
+    all_data['human'] = []
+    for detectLLM in MODELS:
+        all_data[detectLLM] = []
+
+    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    # repo = "AITextDetect/AI_Polish_clean"
+
+    # load all subject data related to the topic
+    for model in MODELS:
+        for subject in CATEGORIES:
+            if TOPIC_MAPPING[subject] != topic:
+                continue
+            mgt_data = load_dataset(repo, trust_remote_code=True, name=model, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            all_data[model].append(mgt_data)
+    
+    for subject in CATEGORIES:
+        if TOPIC_MAPPING[subject] != topic:
+            continue
+        subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
+        all_data['human'].append(subject_human_data)
+
+    # find the smallest length, balance between subjects
+    min_len_dict = {} 
+    for model in MODELS+['human']:
+        min_len = int(1e9)
+        for i in range(len(all_data[model])):
+            min_len = min(min_len, len(all_data[model][i]))
+        min_len_dict[model] = min_len
+
+    # balance the data
+    for model in MODELS+['human']:
+        for i in range(len(all_data[model])):
+            all_data[model][i] = all_data[model][i].shuffle().select(range(min_len_dict[model]))
+
+    # now the topic has the same number of data, for each subject
+    # balance the data between each models and human
+    min_len = int(1e9)
+    for model in MODELS+['human']:
+        model_topic_total_num = 0
+        for i in range(len(all_data[model])):
+            model_topic_total_num += len(all_data[model][i])
+        min_len = min(min_len, model_topic_total_num)
+
+    label_mapping = {'human': 0, 'Moonshot': 1, 'gpt35': 2, 'Mixtral': 3, 'Llama3': 4, 'gpt-4omini': 5}
+    # data mix up
+    final_data = []
+    for model in MODELS+['human']:
+        cnt = 0
+        idx = 0
+        while cnt < min_len:
+            for i in range(len(all_data[model])):
+                final_data.append({'text': all_data[model][i][idx]['text'], 'label': label_mapping[model]})
+                cnt += 1
+            idx += 1
+
+    data = {
+        'train': {
+            'text': [],
+            'label': [],
+        },
+        'test': {
+            'text': [],
+            'label': [],
+        }
+    }
+
+    index_list = list(range(len(final_data)))
+    random.shuffle(index_list)
+
+    total_num = len(final_data)
+    ratio = 0.8
+    for i in tqdm.tqdm(range(total_num), desc="parsing data", disable=False):
+        if i < total_num * ratio:
+            data_partition = 'train'
+        else:
+            data_partition = 'test'
+        data[data_partition]['text'].append(
+            process_spaces(final_data[index_list[i]]['text']))
+        data[data_partition]['label'].append(final_data[index_list[i]]['label'])
+
+    return data
+        
+
+def load_attribution_topic(topic):
+    assert topic in TOPICS
+    saved_data_path = f"/data_sda/zhiyuan/data_3407/{topic}_attribution.json"
+    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
+        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    if not os.path.exists(saved_data_path):
+        data = prepare_attribution_topic(topic, seed=3407)
+        with open(saved_data_path, 'w') as f:
+            json.dump(data, f)
+    else:
+        with open(saved_data_path, 'r') as f:
+            data = json.load(f)
+
+    return data
+
+
 def load_attribution(category):
     saved_data_path = f"data/{category}_attribution_data.json"
     if not os.path.exists("data"):
@@ -394,7 +634,7 @@ def prepare_incremental(order: list, category='Art', seed=0):
     setup_seed(seed)
     
     # Load human data
-    subject_human_data = datasets.load_dataset(
+    subject_human_data = load_dataset(
         "AITextDetect/AI_Polish_clean", trust_remote_code=True, 
         name='Human', split=category
     )
@@ -496,6 +736,7 @@ def prepare_incremental(order: list, category='Art', seed=0):
         data['test'].append(temp_test)
 
     return data
+
 
 def load_incremental(order, category):
     saved_data_path = f"data/{category}_incremental_data.json"

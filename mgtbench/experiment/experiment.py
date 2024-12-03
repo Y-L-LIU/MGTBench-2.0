@@ -15,6 +15,38 @@ class ThresholdExperiment(BaseExperiment):
         self.detector = [detector] if isinstance(detector, MetricBasedDetector) else detector
         if not self.detector:
             raise ValueError('You should pass a list of detector to an experiment')
+    
+    def launch(self, **config):
+        if not self.loaded:
+            raise RuntimeError('You should load the data first, call load_data.')
+        print('Calculate result for each data point')
+        predict_list = self.predict(**config)
+        final_output = []
+        for detector_predict in predict_list:
+            if len(detector_predict['train_pred']) == 2:
+                train_metric1 = self.cal_metrics(*detector_predict['train_pred'][0])
+                test_metric1 = self.cal_metrics(*detector_predict['test_pred'][0])
+                train_metric2 = self.cal_metrics(*detector_predict['train_pred'][1])
+                test_metric2 = self.cal_metrics(*detector_predict['test_pred'][1])
+                final_output.append(DetectOutput(
+                    name = 'threshold',
+                    train = train_metric1,
+                    test = test_metric1
+                ))
+                final_output.append(DetectOutput(
+                    name = 'logistic',
+                    train = train_metric2,
+                    test = test_metric2
+                ))
+            else:
+                train_metric = self.cal_metrics(*detector_predict['train_pred'])
+                test_metric = self.cal_metrics(*detector_predict['test_pred'])
+                final_output.append(DetectOutput(
+                    name = 'logistic',
+                    train = train_metric,
+                    test = test_metric
+                ))
+        return final_output 
         
     def predict(self, **config):
         predict_list = []
@@ -23,7 +55,6 @@ class ThresholdExperiment(BaseExperiment):
             if detector.name not in self._ALLOWED_detector:
                 print(detector.name, 'is not for this experiment')
                 continue
-            
             if detector.name in ['rank_GLTR']:
                 print('Predict training data')
                 x_train, y_train = detector.detect(self.train_text), self.train_label
@@ -40,38 +71,40 @@ class ThresholdExperiment(BaseExperiment):
                 x_test, y_test = self.data_prepare(detector.detect(self.test_text), self.test_label)
                 
             print('Run classification for results')
-            criterion = config.get('criterion', 'logistic')
-            assert criterion in ['logistic', 'threshold']
-            print('Prediction criterion:', criterion)
+            # criterion = config.get('criterion', 'logistic')
+            # assert criterion in ['logistic', 'threshold']
+            # print('Prediction criterion:', criterion)
 
-            if criterion == 'threshold':
-                assert detector.name in ['Binoculars', 'rank', 'll', 'LRR', 'entropy']
-                if detector.name in ['Binoculars']:
-                    detector.find_threshold(x_train, y_train)
+            # if criterion == 'threshold':
+            if detector.name in ['Binoculars', 'rank', 'll', 'LRR', 'entropy']:
+                print('Using threshold criterion')
+                detector.find_threshold(x_train, y_train)
+                if detector.name in ['rank', 'LRR', 'entropy', 'Binoculars']:
                     y_train_preds = [x < detector.threshold for x in x_train]
                     y_test_preds = [x < detector.threshold for x in x_test]
-                    train_result = y_train, y_train_preds, -1 * x_train # for auc, binocular score is higher for human
-                    test_result = y_test, y_test_preds, -1 * x_test
+                    train_result1 = y_train, y_train_preds, -1 * x_train # human has higher score
+                    test_result1 = y_test, y_test_preds, -1 * x_test
 
-                elif detector.name in ['rank', 'll', 'LRR', 'entropy']:
-                    detector.find_threshold(x_train, y_train)
-                    if detector.name in ['rank', 'LRR', 'entropy']:
-                        y_train_preds = [x < detector.threshold for x in x_train]
-                        y_test_preds = [x < detector.threshold for x in x_test]
-                        train_result = y_train, y_train_preds, -1 * x_train # human has higher score
-                        test_result = y_test, y_test_preds, -1 * x_test
+                elif detector.name in ['ll']:
+                    y_train_preds = [x > detector.threshold for x in x_train]
+                    y_test_preds = [x > detector.threshold for x in x_test]
+                    train_result1 = y_train, y_train_preds, x_train
+                    test_result1 = y_test, y_test_preds, x_test
+                
+                # logisitc regression
+                print('Using logistic regression')
+                clf = LogisticRegression(random_state=0).fit(np.clip(x_train, -1e10, 1e10), y_train)
+                train_result2 = self.run_clf(clf, x_train, y_train)
+                test_result2 = self.run_clf(clf, x_test, y_test)
 
-                    elif detector.name in ['ll']:
-                        y_train_preds = [x > detector.threshold for x in x_train]
-                        y_test_preds = [x > detector.threshold for x in x_test]
-                        train_result = y_train, y_train_preds, x_train
-                        test_result = y_test, y_test_preds, x_test
+                predict_list.append({'train_pred':(train_result1, train_result2),
+                                        'test_pred':(test_result1, test_result2)})
             else:
                 clf = LogisticRegression(random_state=0).fit(x_train, y_train)
                 train_result = self.run_clf(clf, x_train, y_train)
                 test_result = self.run_clf(clf, x_test, y_test)
 
-            predict_list.append({'train_pred':train_result,
+                predict_list.append({'train_pred':train_result,
                                  'test_pred':test_result})
             
         return predict_list
@@ -118,6 +151,39 @@ class PerturbExperiment(BaseExperiment):
             raise ValueError('You should pass a list of detector to an experiment')
         self.perturb_config= PerturbConfig()
 
+    def launch(self, **config):
+        if not self.loaded:
+            raise RuntimeError('You should load the data first, call load_data.')
+        print('Calculate result for each data point')
+        predict_list = self.predict(**config)
+        final_output = []
+        for detector_predict in predict_list:
+            if len(detector_predict['train_pred']) == 2:
+                train_metric1 = self.cal_metrics(*detector_predict['train_pred'][0])
+                test_metric1 = self.cal_metrics(*detector_predict['test_pred'][0])
+                train_metric2 = self.cal_metrics(*detector_predict['train_pred'][1])
+                test_metric2 = self.cal_metrics(*detector_predict['test_pred'][1])
+                final_output.append(DetectOutput(
+                    name = 'threshold',
+                    train = train_metric1,
+                    test = test_metric1
+                ))
+                final_output.append(DetectOutput(
+                    name = 'logistic',
+                    train = train_metric2,
+                    test = test_metric2
+                ))
+            else:
+                train_metric = self.cal_metrics(*detector_predict['train_pred'])
+                test_metric = self.cal_metrics(*detector_predict['test_pred'])
+                final_output.append(DetectOutput(
+                    name = '',
+                    train = train_metric,
+                    test = test_metric
+                ))
+        return final_output
+    
+
     def predict(self, **kargs):
         predict_list = []
         for detector in self.detector:
@@ -134,24 +200,35 @@ class PerturbExperiment(BaseExperiment):
             x_test, y_test   = self.data_prepare(detector.detect(self.test_text, self.test_label, self.perturb_config), self.test_label)
             print('Run classification for results')
 
-            criterion = kargs.get('criterion', 'logistic')
-            assert criterion in ['logistic', 'threshold']
-            print('Prediction criterion:', criterion)
+            # criterion = kargs.get('criterion', 'logistic')
+            # assert criterion in ['logistic', 'threshold']
+            # print('Prediction criterion:', criterion)
 
-            if criterion == 'threshold':
-                if detector.name in ['NPR', 'fast-detectGPT', 'DNA-GPT', 'detectGPT']:
-                    detector.find_threshold(x_train, y_train)
-                    y_train_preds = [x > detector.threshold for x in x_train]
-                    y_test_preds = [x > detector.threshold for x in x_test]
-                    train_result = y_train, y_train_preds, x_train
-                    test_result = y_test, y_test_preds, x_test
+            # if criterion == 'threshold':
+            if detector.name in ['NPR', 'fast-detectGPT', 'DNA-GPT', 'detectGPT']:
+                print('Using threshold criterion')
+                detector.find_threshold(x_train, y_train)
+                y_train_preds = [x > detector.threshold for x in x_train]
+                y_test_preds = [x > detector.threshold for x in x_test]
+                train_result1 = y_train, y_train_preds, x_train
+                test_result1 = y_test, y_test_preds, x_test
+
+                # logisitc regression
+                print('Using logistic regression')
+                clf = LogisticRegression(random_state=0).fit(x_train, y_train)
+                train_result2 = self.run_clf(clf, x_train, y_train)
+                test_result2 = self.run_clf(clf, x_test, y_test)
+
+                predict_list.append({'train_pred':(train_result1, train_result2),
+                                    'test_pred':(test_result1, test_result2)})
+
             else:
                 clf = LogisticRegression(random_state=0).fit(x_train, y_train)
                 train_result = self.run_clf(clf, x_train, y_train)
                 test_result = self.run_clf(clf, x_test, y_test)
 
-            predict_list.append({'train_pred':train_result,
-                                 'test_pred':test_result})
+                predict_list.append({'train_pred':train_result,
+                                    'test_pred':test_result})
             
         return predict_list
 
