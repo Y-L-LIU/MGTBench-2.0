@@ -84,6 +84,9 @@ class BaseExperiment(ABC):
         return x_train, y
     
     def run_clf(self, clf, x, y):
+        # Clip extreme values
+        x = np.clip(x, -1e10, 1e10)
+
         y_train_pred = clf.predict(x)
         y_train_pred_prob = clf.predict_proba(x)
         y_train_pred_prob = [_[1] for _ in y_train_pred_prob]
@@ -118,7 +121,7 @@ class BaseExperiment(ABC):
         self.test_text = data['test']['text']
         self.test_label = data['test']['label']
 
-    def launch(self, **config):
+    def launch(self, **config) -> list[DetectOutput]:
         if not self.loaded:
             raise RuntimeError('You should load the data first, call load_data.')
         print('Calculate result for each data point')

@@ -6,7 +6,7 @@ from typing import Union
 from ..utils import timeit, get_clf_results, assert_tokenizer_consistency
 from .IntrinsicDim import PHD
 from torch.utils.data import DataLoader
-from tqdm import tqdm
+
 from ..auto import BaseDetector
 from ..loading import load_pretrained
 from transformers import PreTrainedModel, PreTrainedTokenizerBase, AutoModelForCausalLM, AutoTokenizer, BatchEncoding
@@ -150,7 +150,9 @@ class LRRDetector(RankDetector, LLDetector):
     def detect(self, text):
         p_rank_origin = np.array(RankDetector.detect(self, text, log=True))
         p_ll_origin = np.array(LLDetector.detect(self, text))
-        return p_ll_origin/p_rank_origin
+        epsilon = 1e-10
+        return p_ll_origin / (p_rank_origin + epsilon)
+        # return p_ll_origin/p_rank_originw
 
     def find_threshold(self, train_scores, train_labels):
         # Sort scores to get possible threshold values
