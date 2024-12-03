@@ -432,7 +432,6 @@ def load_topic_data(detectLLM, topic, seed=0):
     return data_new
 
 
-
 def download_data(model_name, category):
     return load_dataset(
         "AITextDetect/AI_Polish_clean",
@@ -441,6 +440,7 @@ def download_data(model_name, category):
         split=category,
         # cache_dir=cache_dir
     )
+
 
 def prepare_attribution(category='Art', seed=0):
     setup_seed(seed)
@@ -609,6 +609,7 @@ def load_attribution_topic(topic):
 
     return data
 
+
 def load_attribution(category):
     saved_data_path = f"data/{category}_attribution_data.json"
     if not os.path.exists("data"):
@@ -735,6 +736,7 @@ def prepare_incremental(order: list, category='Art', seed=0):
         data['test'].append(temp_test)
 
     return data
+
 
 def load_incremental(order, category):
     saved_data_path = f"data/{category}_incremental_data.json"
