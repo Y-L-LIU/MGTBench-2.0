@@ -625,7 +625,7 @@ def load_attribution(category):
     return data
 
 
-def prepare_incremental(order: list, category='Art', seed=0):
+def prepare_incremental(order: list, category='Art', seed=3407):
     '''
     Prepare incremental data for the given category containing specified models and human data,
     with the order of each model set given by the list of lists in "order".
@@ -739,9 +739,15 @@ def prepare_incremental(order: list, category='Art', seed=0):
 
 
 def load_incremental(order, category):
-    saved_data_path = f"data/{category}_incremental_data.json"
-    if not os.path.exists("data"):
-        os.makedirs("data")
+    seq = ''
+    for model_group in order:
+        for model in model_group:
+            id = LABEL_MAPPING[model]
+            seq += str(id)
+        seq += '_'
+    saved_data_path = f"/data_sda/zhiyuan/data_3407/{category}_incremental_{seq}.json"
+    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
+        os.makedirs("/data_sda/zhiyuan/data_3407/")
     if not os.path.exists(saved_data_path):
         data = prepare_incremental(order, category, seed=3407)
         with open(saved_data_path, 'w') as f:
@@ -750,4 +756,155 @@ def load_incremental(order, category):
         with open(saved_data_path, 'r') as f:
             data = json.load(f)
 
+    return data
+
+
+def prepare_incremental_topic(order: list, topic, seed=3407):
+    '''
+    Prepare incremental data for the given topic containing specified models and human data,
+    with the order of each model set given by the list of lists in "order".
+    Example: order = [['Moonshot'], ['gpt35', 'Llama3']]
+    '''
+    setup_seed(seed)
+
+    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    all_data = {}
+    all_data['human'] = []
+    all_models = [model for group in order for model in group]
+    for detectLLM in all_models:
+        all_data[detectLLM] = []
+
+    # Load human data
+    for subject in CATEGORIES:
+        if TOPIC_MAPPING[subject] == topic:
+            # repo = "AITextDetect/AI_Polish_clean"
+            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            all_data['human'].append(subject_human_data)
+    
+    # Load models data
+    for detectLLM in all_models:
+        for subject in CATEGORIES:
+            if TOPIC_MAPPING[subject] == topic:
+                mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+                all_data[detectLLM].append(mgt_data)
+
+    # combine subjects into one list, each subject has the same number of data
+    for detectLLM in all_models+['human']:
+        min_len = int(1e9)
+        for i in range(len(all_data[detectLLM])):
+            min_len = min(min_len, len(all_data[detectLLM][i]))
+        for i in range(len(all_data[detectLLM])):
+            all_data[detectLLM][i] = all_data[detectLLM][i].shuffle().select(range(min_len))
+        all_data[detectLLM] = [d for sublist in all_data[detectLLM] for d in sublist]
+        random.shuffle(all_data[detectLLM])
+
+    # Determine the data length for each round
+    if len(order[0]) == 1:
+        first_round_len = len(all_data[order[0][0]])
+    else:
+        first_round_len = min(len(all_data[model]) for model in order[0])
+
+    # Limit the human sample to the first round length
+    random.shuffle(all_data['human'])
+    human_sample = random.sample(all_data['human'], first_round_len)
+
+    # Prepare model data length according to the first round's length
+    for m in all_data:
+        if len(all_data[m]) > first_round_len:
+            random.shuffle(all_data[m])
+            all_data[m] = all_data[m][:first_round_len]
+
+    # Train/test split
+    split = 0.8
+    train_data = {}
+    test_data = {}
+    for m in all_models:
+        available_len = len(all_data[m])
+        current_len = min(available_len, first_round_len)
+        train_data[m] = all_data[m][:int(current_len * split)]
+        test_data[m] = all_data[m][int(current_len * split):current_len]
+
+    train_data['Human'] = human_sample[:int(first_round_len * split)]
+    test_data['Human'] = human_sample[int(first_round_len * split):first_round_len]
+
+    # Incremental data structure
+    data = {
+        'train': [],
+        'test': []
+    }
+    for i, group in enumerate(order):
+        # Train data: start with human data in the first round, add models as per the order list
+        temp_train = {
+            'text': [],
+            'label': []
+        }
+        if i == 0:
+            for d in train_data['Human']:
+                temp_train['text'].append(d['text'])
+                temp_train['label'].append(0)  # Human label
+
+        for j, model_name in enumerate(group):
+            model_len = min(len(train_data[model_name]), first_round_len) if i > 0 else len(train_data[model_name])
+            model_train_data = random.sample(train_data[model_name], model_len)
+            
+            for d in model_train_data:
+                temp_train['text'].append(d['text'])
+                temp_train['label'].append(j + 1 + sum(len(g) for g in order[:i]))  # Model-specific label
+
+        if len(group) > 1 or i == 0:
+            combined_data = list(zip(temp_train['text'], temp_train['label']))
+            random.shuffle(combined_data)  # Shuffle when there are multiple models
+            temp_train['text'], temp_train['label'] = zip(*combined_data)
+        
+        data['train'].append(temp_train)
+
+        # Test data: include human data initially, add current and past models
+        temp_test = {
+            'text': [],
+            'label': []
+        }
+        if i == 0:
+            for d in test_data['Human']:
+                temp_test['text'].append(d['text'])
+                temp_test['label'].append(0)  # Human label
+
+        for j, model_name in enumerate(group):
+            model_len = min(len(test_data[model_name]), first_round_len) if i > 0 else len(test_data[model_name])
+            model_test_data = random.sample(test_data[model_name], model_len)
+            
+            for d in model_test_data:
+                temp_test['text'].append(d['text'])
+                temp_test['label'].append(j + 1 + sum(len(g) for g in order[:i]))  # Model-specific label
+
+        if i > 0:
+            # Include previous test data in the current round
+            prev_test_data = data['test'][i - 1]
+            temp_test['text'].extend(prev_test_data['text'])
+            temp_test['label'].extend(prev_test_data['label'])
+
+        data['test'].append(temp_test)
+
+    return data
+
+LABEL_MAPPING = {'Human': 0, 'Moonshot': 1, 'gpt35': 2, 'Mixtral': 3, 'Llama3': 4, 'gpt-4omini': 5}
+
+def load_incremental_topic(order, topic):
+    assert topic in TOPICS
+    seq = ''
+    for model_group in order:
+        for model in model_group:
+            id = LABEL_MAPPING[model]
+            seq += str(id)
+        seq += '_'
+    saved_data_path = f"/data_sda/zhiyuan/data_3407/{topic}_incremental_{seq}.json"
+    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
+        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    if not os.path.exists(saved_data_path):
+        data = prepare_incremental_topic(order=order, topic=topic, seed=3407)
+        with open(saved_data_path, 'w') as f:
+            json.dump(data, f)
+    else:
+        with open(saved_data_path, 'r') as f:
+            data = json.load(f)
+    
     return data
