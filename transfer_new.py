@@ -13,7 +13,7 @@ category = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Compute
             'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 
             'Economy', 'Math', 'Statistics', 'Chemistry']
 
-llms = ['Moonshot', 'Mixtral', 'gpt35', 'Llama3']
+llms = ['Moonshot', 'Mixtral', 'gpt35', 'Llama3','gpt-4omini']
 
 distilbert = '/data1/models/distilbert-base-uncased'
 # roberta = '/data1/zzy/roberta-base'
@@ -58,7 +58,7 @@ def transfer_across_detectLLM(model_path, source_LLM, cat):
         'source': {},
         'target': []
     }
-    detectLLMs = ['Moonshot', 'Mixtral', 'gpt35', 'Llama3']
+    detectLLMs = ['Moonshot', 'Mixtral', 'gpt35', 'Llama3', 'gpt-4omini']
     # Iterate over each detectLLM to perform the transfer task
     for detectLLM in detectLLMs:
         # Get the path for the specific model and detectLLM

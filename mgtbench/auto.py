@@ -23,7 +23,10 @@ DETECTOR_MAPPING = {
     'ChatGPT-D':'mgtbench.methods.SupervisedDetector',
     'LM-D':'mgtbench.methods.SupervisedDetector',
     'demasq' : 'mgtbench.methods.DemasqDetector',
-    'incremental': 'mgtbench.methods.IncrementalDetector'
+    'incremental': 'mgtbench.methods.IncrementalDetector',
+    'baseline':'mgtbench.methods.BaselineDetector',
+    'generate':'mgtbench.methods.GenerateDetector',
+    'rn': 'mgtbench.methods.RNDetector'
 }
 
 EXPERIMENT_MAPPING = {
@@ -32,6 +35,8 @@ EXPERIMENT_MAPPING = {
     'supervised' : 'mgtbench.experiment.SupervisedExperiment',
     'demasq' : 'mgtbench.experiment.DemasqExperiment',
     'incremental' : 'mgtbench.experiment.IncrementalExperiment',
+    'incremental_threshold':'mgtbench.experiment.IncrementalThresholdExperiment',
+    'fewshot':'mgtbench.experiment.FewShotExperiment'
 }
 
 class BaseDetector(ABC):
@@ -93,7 +98,7 @@ class BaseExperiment(ABC):
         return (y, y_train_pred, y_train_pred_prob)
 
     def cal_metrics(self, label, pred_label, pred_posteriors) -> Metric:
-        if max(set(label)) < 2:
+        if max(label) < 2:
             acc = accuracy_score(label, pred_label)
             precision = precision_score(label, pred_label)
             recall = recall_score(label, pred_label)
@@ -128,21 +133,28 @@ class BaseExperiment(ABC):
         predict_list = self.predict(**config)
         final_output = []
         for detector_predict in predict_list:
-            is_eval = config.get('eval', False)
-            if is_eval:
-                test_metric = self.cal_metrics(*detector_predict['test_pred'])
-                final_output.append(DetectOutput(
-                    name = '',
-                    test = test_metric
-                ))
-            else:
-                train_metric = self.cal_metrics(*detector_predict['train_pred'])
-                test_metric = self.cal_metrics(*detector_predict['test_pred'])
-                final_output.append(DetectOutput(
-                    name = '',
-                    train = train_metric,
-                    test = test_metric
-                ))
+            for key in ['intermedia_pred', 'test_pred', 'train_pred']:
+                if key in detector_predict:
+                    test_metric = self.cal_metrics(*detector_predict[key])
+                    final_output.append(DetectOutput(
+                        name = key,
+                        test = test_metric
+                    ))
+
+            # if is_eval:
+            #     test_metric = self.cal_metrics(*detector_predict['test_pred'])
+            #     final_output.append(DetectOutput(
+            #         name = '',
+            #         test = test_metric
+            #     ))
+            # else:
+            #     train_metric = self.cal_metrics(*detector_predict['train_pred'])
+            #     test_metric = self.cal_metrics(*detector_predict['test_pred'])
+            #     final_output.append(DetectOutput(
+            #         name = '',
+            #         train = train_metric,
+            #         test = test_metric
+            #     ))
         return final_output 
 
 
