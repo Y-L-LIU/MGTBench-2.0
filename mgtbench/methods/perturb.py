@@ -10,6 +10,7 @@ import time
 from tqdm import tqdm
 from dataclasses import dataclass
 from torch.utils.data import DataLoader
+from sklearn.linear_model import LogisticRegression
 # define regex to match all <extra_id_*> tokens, where * is an integer
 pattern = re.compile(r"<extra_id_\d+>")
 
@@ -209,6 +210,7 @@ class PerturbBasedDetector(BaseDetector):
         # mask filling model
         self.mask_model, self.mask_tokenizer = load_pretrained_mask(mask_model_name_or_path)
         self.ceil_pct = kargs.get('ceil_pct', False)
+        self.classifier = LogisticRegression()
 
     def perturb_once(self, texts, perturb_config, chunk_size=20):
         outputs = []
@@ -302,6 +304,7 @@ class FastDetectGPTDetector():
             raise ValueError('You should pass the scoring_model_name_or_path, but ',scoring_model_name_or_path, 'are given')
         # scoring model
         self.scoring_model, self.scoring_tokenizer = load_pretrained(scoring_model_name_or_path)
+        self.classifier = LogisticRegression()
         self.scoring_model.eval()
         if reference_model_name_or_path:
             if reference_model_name_or_path != scoring_model_name_or_path:
@@ -384,8 +387,8 @@ class FastDetectGPTDetector():
         self.threshold = best_threshold
         return best_threshold
     
-    def detect(self, text, label, config):
-        seed = config.seed
+    def detect(self, text, label=None, config=None):
+        seed = 3407
         random.seed(seed)
         torch.manual_seed(seed)
         np.random.seed(seed)

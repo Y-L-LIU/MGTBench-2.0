@@ -13,6 +13,8 @@ from transformers import PreTrainedModel, PreTrainedTokenizerBase, AutoModelForC
 from sklearn.metrics import accuracy_score, f1_score, roc_curve
 import warnings
 from tqdm import tqdm
+from sklearn.linear_model import LogisticRegression
+
 # # Under development
 # def get_phd(text, base_model, base_tokenizer, DEVICE):
 #     # default setting
@@ -42,6 +44,7 @@ class MetricBasedDetector(BaseDetector):
         self.model = kargs.get('model', None)
         self.tokenizer = kargs.get('tokenizer', None)
         self.device = kargs.get('device', None)
+        self.classifier = LogisticRegression()
         if not self.model or not  self.tokenizer:
             model_name_or_path = kargs.get('model_name_or_path', None)
             if not model_name_or_path :
@@ -276,6 +279,7 @@ class BinocularsDetector(BaseDetector):
                                                                     )
         self.observer_model.eval()
         self.performer_model.eval()
+        self.classifier = LogisticRegression()
 
         # selected using Falcon-7B and Falcon-7B-Instruct at bfloat16
         self.BINOCULARS_ACCURACY_THRESHOLD = 0.9015310749276843  # optimized for f1-score
