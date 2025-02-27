@@ -5,3 +5,4 @@ from .perturb import PerturbBasedDetector, DetectGPTDetector, NPRDetector, FastD
 from .supervised import SupervisedDetector
 from .demasq import DemasqDetector
 from .supervised_incremental import IncrementalDetector
+from .supervised_fewshot import FewShotDetector, BaselineDetector, GenerateDetector, RNDetector
