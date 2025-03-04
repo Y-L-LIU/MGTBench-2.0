@@ -36,6 +36,10 @@ res = experiment.launch()
 print('train:', res[0].train)
 print('test:', res[0].test)
 ```
+### Dataloader
+
+An exmaple usage is provided in [`check_dataloader.ipynb`](notebook/check_dataloader.ipynb).
+
 For our dataset, we support multiple ways to load:
 
 * load by category:
@@ -110,9 +114,6 @@ It contains human written and AI polished text in different categories, includin
 From [wiki](https://en.wikipedia.org/wiki/Main_Page), [arxiv](https://arxiv.org/), and [Gutenberg](https://www.gutenberg.org/)
 
 
-### Dataloader
-
-An exmaple usage is provided in [`check_dataloader.ipynb`](notebook/check_dataloader.ipynb).
 
 ## Usage
 
