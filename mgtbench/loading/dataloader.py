@@ -613,12 +613,12 @@ def load_attribution_topic(topic):
     return data
 
 
-def load_attribution(category):
-    saved_data_path = f"data/{category}_attribution_data.json"
-    if not os.path.exists("data"):
-        os.makedirs("data")
+def load_attribution(category, seed=0):
+    saved_data_path = f"./exp_data/{seed}/{category}_attribution_data.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_attribution(category, seed=3407)
+        data = prepare_attribution(category, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path) 
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:
