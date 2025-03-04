@@ -770,7 +770,7 @@ def prepare_incremental_topic(order: list, topic, seed=3407):
     '''
     setup_seed(seed)
 
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    repo = "AITextDetect/AI_Polish_clean"
     all_data = {}
     all_data['human'] = []
     all_models = [model for group in order for model in group]
@@ -781,14 +781,14 @@ def prepare_incremental_topic(order: list, topic, seed=3407):
     for subject in CATEGORIES:
         if TOPIC_MAPPING[subject] == topic:
             # repo = "AITextDetect/AI_Polish_clean"
-            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject)
             all_data['human'].append(subject_human_data)
     
     # Load models data
     for detectLLM in all_models:
         for subject in CATEGORIES:
             if TOPIC_MAPPING[subject] == topic:
-                mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+                mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject)
                 all_data[detectLLM].append(mgt_data)
 
     # combine subjects into one list, each subject has the same number of data
@@ -891,7 +891,7 @@ def prepare_incremental_topic(order: list, topic, seed=3407):
 
 LABEL_MAPPING = {'Human': 0, 'Moonshot': 1, 'gpt35': 2, 'Mixtral': 3, 'Llama3': 4, 'gpt-4omini': 5}
 
-def load_incremental_topic(order, topic):
+def load_incremental_topic(order, topic, seed=0):
     assert topic in TOPICS
     seq = ''
     for model_group in order:
@@ -899,11 +899,12 @@ def load_incremental_topic(order, topic):
             id = LABEL_MAPPING[model]
             seq += str(id)
         seq += '_'
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{topic}_incremental_{seq}.json"
-    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
-        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    seq = seq[:-1]
+    saved_data_path = f"./exp_data/{seed}/{topic}_incremental_{seq}.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_incremental_topic(order=order, topic=topic, seed=3407)
+        data = prepare_incremental_topic(order=order, topic=topic, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path)
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:
