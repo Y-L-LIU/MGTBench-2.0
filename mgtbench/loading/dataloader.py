@@ -290,7 +290,7 @@ def load_old_data(name, detectLLM):
 
 
 def load_subject_data(detectLLM, category, seed=0):
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{detectLLM}_{category}.json"
+    saved_data_path = f"./exp_data/{seed}/{detectLLM}_{category}.json"
     if os.path.exists(saved_data_path):
         print('using saved data', saved_data_path)
         with open(saved_data_path, 'r') as f:
@@ -304,13 +304,13 @@ def load_subject_data(detectLLM, category, seed=0):
         return data
 
     print('loading human data')
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
-    # repo = "AITextDetect/AI_Polish_clean"
-    subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=category, cache_dir='/data1/zzy/cache/huggingface')
-
+    
+    repo = 'AITextDetect/AI_Polish_clean'
+    subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=category)
+    
     print('loading machine data')
-    mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=category, cache_dir='/data1/zzy/cache/huggingface')
-
+    mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=category)
+    
     print('data loaded')
 
     # data mix up
@@ -348,6 +348,8 @@ def load_subject_data(detectLLM, category, seed=0):
         data_new[data_partition]['label'].append(all_data[index_list[i]]['label'])
 
     if not os.path.exists(saved_data_path):
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path) 
         with open(saved_data_path, 'w') as f:
             json.dump(data_new, f)
 
@@ -356,7 +358,7 @@ def load_subject_data(detectLLM, category, seed=0):
 
 def load_topic_data(detectLLM, topic, seed=0):
     setup_seed(seed)
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{detectLLM}_{topic}.json"
+    saved_data_path = f"./exp_data/{seed}/{detectLLM}_{topic}.json"
     if os.path.exists(saved_data_path):
         print('using saved data', saved_data_path)
         with open(saved_data_path, 'r') as f:
@@ -369,15 +371,14 @@ def load_topic_data(detectLLM, topic, seed=0):
         print(f"test machine: {test_machine_cnt}, test human: {test_human_cnt}")
         return data
 
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    repo = "AITextDetect/AI_Polish_clean"
     all_data = {}
     all_data['human'] = []
     all_data[topic] = []
     for subject in CATEGORIES:
         if TOPIC_MAPPING[subject] == topic:
-            # repo = "AITextDetect/AI_Polish_clean"
-            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
-            mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject)
+            mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject)
             all_data['human'].append(subject_human_data)
             all_data[topic].append(mgt_data)
     
@@ -425,9 +426,11 @@ def load_topic_data(detectLLM, topic, seed=0):
             process_spaces(final_data[index_list[i]]['text']))
         data_new[data_partition]['label'].append(final_data[index_list[i]]['label'])
 
-    # if not os.path.exists(saved_data_path):
-    with open(saved_data_path, 'w') as f:
-        json.dump(data_new, f)
+    if not os.path.exists(saved_data_path):
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path) 
+        with open(saved_data_path, 'w') as f:
+            json.dump(data_new, f)
 
     return data_new
 
@@ -515,21 +518,20 @@ def prepare_attribution_topic(topic='STEM', seed=0):
     for detectLLM in MODELS:
         all_data[detectLLM] = []
 
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
-    # repo = "AITextDetect/AI_Polish_clean"
+    repo = "AITextDetect/AI_Polish_clean"
 
     # load all subject data related to the topic
     for model in MODELS:
         for subject in CATEGORIES:
             if TOPIC_MAPPING[subject] != topic:
                 continue
-            mgt_data = load_dataset(repo, trust_remote_code=True, name=model, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            mgt_data = load_dataset(repo, trust_remote_code=True, name=model, split=subject)
             all_data[model].append(mgt_data)
     
     for subject in CATEGORIES:
         if TOPIC_MAPPING[subject] != topic:
             continue
-        subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
+        subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject)
         all_data['human'].append(subject_human_data)
 
     # find the smallest length, balance between subjects
@@ -594,13 +596,12 @@ def prepare_attribution_topic(topic='STEM', seed=0):
     return data
         
 
-def load_attribution_topic(topic):
+def load_attribution_topic(topic, seed=0):
     assert topic in TOPICS
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{topic}_attribution.json"
-    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
-        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    saved_data_path = f"./exp_data/{seed}/{topic}_attribution.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_attribution_topic(topic, seed=3407)
+        data = prepare_attribution_topic(topic, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:
@@ -610,12 +611,12 @@ def load_attribution_topic(topic):
     return data
 
 
-def load_attribution(category):
-    saved_data_path = f"data/{category}_attribution_data.json"
-    if not os.path.exists("data"):
-        os.makedirs("data")
+def load_attribution(category, seed=0):
+    saved_data_path = f"./exp_data/{seed}/{category}_attribution_data.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_attribution(category, seed=3407)
+        data = prepare_attribution(category, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path) 
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:
@@ -738,18 +739,19 @@ def prepare_incremental(order: list, category='Art', seed=3407):
     return data
 
 
-def load_incremental(order, category):
+def load_incremental(order, category, seed=0):
     seq = ''
     for model_group in order:
         for model in model_group:
             id = LABEL_MAPPING[model]
             seq += str(id)
         seq += '_'
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{category}_incremental_{seq}.json"
-    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
-        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    seq = seq[:-1]
+    saved_data_path = f"./exp_data/{seed}/{category}_incremental_{seq}.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_incremental(order, category, seed=3407)
+        data = prepare_incremental(order, category, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path)
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:
@@ -767,7 +769,7 @@ def prepare_incremental_topic(order: list, topic, seed=3407):
     '''
     setup_seed(seed)
 
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    repo = "AITextDetect/AI_Polish_clean"
     all_data = {}
     all_data['human'] = []
     all_models = [model for group in order for model in group]
@@ -778,14 +780,14 @@ def prepare_incremental_topic(order: list, topic, seed=3407):
     for subject in CATEGORIES:
         if TOPIC_MAPPING[subject] == topic:
             # repo = "AITextDetect/AI_Polish_clean"
-            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject)
             all_data['human'].append(subject_human_data)
     
     # Load models data
     for detectLLM in all_models:
         for subject in CATEGORIES:
             if TOPIC_MAPPING[subject] == topic:
-                mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+                mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject)
                 all_data[detectLLM].append(mgt_data)
 
     # combine subjects into one list, each subject has the same number of data
@@ -888,7 +890,7 @@ def prepare_incremental_topic(order: list, topic, seed=3407):
 
 LABEL_MAPPING = {'Human': 0, 'Moonshot': 1, 'gpt35': 2, 'Mixtral': 3, 'Llama3': 4, 'gpt-4omini': 5}
 
-def load_incremental_topic(order, topic):
+def load_incremental_topic(order, topic, seed=0):
     assert topic in TOPICS
     seq = ''
     for model_group in order:
@@ -896,11 +898,12 @@ def load_incremental_topic(order, topic):
             id = LABEL_MAPPING[model]
             seq += str(id)
         seq += '_'
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{topic}_incremental_{seq}.json"
-    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
-        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    seq = seq[:-1]
+    saved_data_path = f"./exp_data/{seed}/{topic}_incremental_{seq}.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_incremental_topic(order=order, topic=topic, seed=3407)
+        data = prepare_incremental_topic(order=order, topic=topic, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path)
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:

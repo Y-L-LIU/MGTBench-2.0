@@ -62,7 +62,7 @@ Currently, we support the following methods (continuous updating):
 
 ## Supported Datasets
 
-- [AITextDetect](https://huggingface.co/AITextDetect)
+- [AITextDetect](https://huggingface.co/datasets/AITextDetect/AI_Polish_clean)
 
 It contains human written and AI polished text in different categories, including:
 - STEM (Physics, Math, Computer, Biology, Chemistry, Electrical, Medicine, Statistics)
@@ -88,6 +88,9 @@ llms = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3']
 detectLLM = 'Llama3'
 category = 'Math'
 
+import os
+os.environ['HF_TOKEN'] = 'your_hf_token' # your huggingface token
+
 from datasets import load_dataset
 
 # ai polished
@@ -105,15 +108,13 @@ human = load_dataset("AITextDetect/AI_Polish_clean",
                     )
 ```
 
-You can also download the dataset from [Huggingface](https://huggingface.co/datasets/AITextDetect/AI_Polish_clean), and examine locally:
-```python
-from datasets import load_dataset
+### Dataloader
 
-# for human data, chemistry category
-human_chemistry = load_dataset("path/to/AITextDetect/AI_Polish_clean/Human/Chemistry")
-```
+An exmaple usage is provided in [`check_dataloader.ipynb`](notebook/check_dataloader.ipynb).
 
 ## Usage
+
+
 To run the benchmark on the `AITextDetect` dataset: 
 
 ```bash
