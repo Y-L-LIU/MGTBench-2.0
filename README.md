@@ -16,7 +16,7 @@ conda activate mgtbench2;
 ```
 
 
-Check out [`demo.ipynb`](demo.ipynb) for a quick start.
+Check out [`notebook/detection.ipynb`](notebook/detection.ipynb) for a quick start.
 ```python
 from mgtbench import AutoDetector, AutoExperiment
 from mgtbench.loading.dataloader import load
@@ -36,7 +36,49 @@ res = experiment.launch()
 print('train:', res[0].train)
 print('test:', res[0].test)
 ```
+### Dataloader
 
+An exmaple usage is provided in [`check_dataloader.ipynb`](notebook/check_dataloader.ipynb).
+
+For our dataset, we support multiple ways to load:
+
+* load by category:
+```python
+'''
+supported LLMs and detect categories:
+
+categories = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Computer_science', 'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 'Economy', 'Math', 'Statistics', 'Chemistry']
+
+llms = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini']
+
+TOPICS = ['STEM', 'Humanities', 'Social_sciences']
+
+'''
+data_name = 'AITextDetect'
+detectLLM = 'Llama3'
+category = 'Art'
+data = load(data_name, detectLLM, category) #2 classes 
+data = load_attribution(data_name, detectLLM) #all classes
+```
+* load by topics (recommended):
+```python
+from mgtbench.loading.dataloader import load_topic_data, load_attribution_topic
+data = load_topic_data(detectLLM, topic)
+# Humanities Social_sciences
+data = load_attribution_topic('Social_sciences')
+```
+Additionally, we support loading the data in an incremental way 
+
+
+```python
+# two stages. first stage includes 5 classes (with human) and the second stage incude 1 classes
+order = [['gpt35', 'Mixtral','Moonshot','Llama3',],['gpt-4omini']]
+# fives stages. first stage includes 2 classes (with human) and each remaining stage includes 1 class
+order = [['Moonshot'],['Mixtral'],['gpt35'],['Llama3'],['gpt-4omini']]
+from mgtbench.loading import load_incremental_topic, load_incremental
+data = load_incremental_topic(order, "Social_sciences")
+
+```
 
 ## Supported Methods
 Currently, we support the following methods (continuous updating):
@@ -72,45 +114,6 @@ It contains human written and AI polished text in different categories, includin
 From [wiki](https://en.wikipedia.org/wiki/Main_Page), [arxiv](https://arxiv.org/), and [Gutenberg](https://www.gutenberg.org/)
 
 
-
-To check the dataset:
-```python
-'''
-supported LLMs and detect categories:
-
-categories = ['Physics', 'Medicine', 'Biology', 'Electrical_engineering', 'Computer_science', 'Literature', 'History', 'Education', 'Art', 'Law', 'Management', 'Philosophy', 'Economy', 'Math', 'Statistics', 'Chemistry']
-
-llms = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3']
-
-'Human' for human written data
-'''
-
-detectLLM = 'Llama3'
-category = 'Math'
-
-import os
-os.environ['HF_TOKEN'] = 'your_hf_token' # your huggingface token
-
-from datasets import load_dataset
-
-# ai polished
-polish = load_dataset("AITextDetect/AI_Polish_clean",
-                      name=detectLLM,
-                      split=category,
-                      trust_remote_code=True
-                    )
-
-# human written
-human = load_dataset("AITextDetect/AI_Polish_clean",
-                     name='Human',
-                     split=category,
-                     trust_remote_code=True
-                    )
-```
-
-### Dataloader
-
-An exmaple usage is provided in [`check_dataloader.ipynb`](notebook/check_dataloader.ipynb).
 
 ## Usage
 
@@ -151,6 +154,16 @@ Note that you can also specify your own datasets on ``dataloader.py``.
 ## Cite
 If you find this repo and dataset useful, please consider cite our work
 ```
+@misc{liu2025generalizationadaptationabilitymachinegenerated,
+      title={On the Generalization and Adaptation Ability of Machine-Generated Text Detectors in Academic Writing}, 
+      author={Yule Liu and Zhiyuan Zhong and Yifan Liao and Zhen Sun and Jingyi Zheng and Jiaheng Wei and Qingyuan Gong and Fenghua Tong and Yang Chen and Yang Zhang and Xinlei He},
+      year={2025},
+      eprint={2412.17242},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2412.17242}, 
+}
+
 @inproceedings{he2024mgtbench,
 author = {He, Xinlei and Shen, Xinyue and Chen, Zeyuan and Backes, Michael and Zhang, Yang},
 title = {{Mgtbench: Benchmarking machine-generated text detection}},
@@ -158,14 +171,5 @@ booktitle = {{ACM SIGSAC Conference on Computer and Communications Security (CCS
 pages = {},
 publisher = {ACM},
 year = {2024}
-}
-
-@software{liu2024rethinkingMGT,
-  author = {Liu, Yule and Zhong, Zhiyuan and Liao, Yifan and Leng, Jiaqi and Sun, Zhen and Chen, Yang and Gong, Qingyuan and Zhang, Yang and He, Xinlei},
-  month = {10},
-  title = {{MGTBench-2.0: Rethinking the Machine-Generated Text Detection}},
-  url = {https://github.com//Y-L-LIU/MGTBench-2.0},
-  version = {2.0.0},
-  year = {2024}
 }
 ```
