@@ -597,13 +597,12 @@ def prepare_attribution_topic(topic='STEM', seed=0):
     return data
         
 
-def load_attribution_topic(topic):
+def load_attribution_topic(topic, seed=0):
     assert topic in TOPICS
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{topic}_attribution.json"
-    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
-        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    saved_data_path = f"./exp_data/{seed}/{topic}_attribution.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_attribution_topic(topic, seed=3407)
+        data = prepare_attribution_topic(topic, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:
