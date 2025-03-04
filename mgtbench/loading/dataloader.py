@@ -358,7 +358,7 @@ def load_subject_data(detectLLM, category, seed=0):
 
 def load_topic_data(detectLLM, topic, seed=0):
     setup_seed(seed)
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{detectLLM}_{topic}.json"
+    saved_data_path = f"./exp_data/{seed}/{detectLLM}_{topic}.json"
     if os.path.exists(saved_data_path):
         print('using saved data', saved_data_path)
         with open(saved_data_path, 'r') as f:
@@ -371,15 +371,14 @@ def load_topic_data(detectLLM, topic, seed=0):
         print(f"test machine: {test_machine_cnt}, test human: {test_human_cnt}")
         return data
 
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
+    repo = "AITextDetect/AI_Polish_clean"
     all_data = {}
     all_data['human'] = []
     all_data[topic] = []
     for subject in CATEGORIES:
         if TOPIC_MAPPING[subject] == topic:
-            # repo = "AITextDetect/AI_Polish_clean"
-            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
-            mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject)
+            mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=subject)
             all_data['human'].append(subject_human_data)
             all_data[topic].append(mgt_data)
     
@@ -427,9 +426,11 @@ def load_topic_data(detectLLM, topic, seed=0):
             process_spaces(final_data[index_list[i]]['text']))
         data_new[data_partition]['label'].append(final_data[index_list[i]]['label'])
 
-    # if not os.path.exists(saved_data_path):
-    with open(saved_data_path, 'w') as f:
-        json.dump(data_new, f)
+    if not os.path.exists(saved_data_path):
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path) 
+        with open(saved_data_path, 'w') as f:
+            json.dump(data_new, f)
 
     return data_new
 
