@@ -62,7 +62,7 @@ Currently, we support the following methods (continuous updating):
 
 ## Supported Datasets
 
-- [AITextDetect](https://huggingface.co/AITextDetect)
+- [AITextDetect](https://huggingface.co/datasets/AITextDetect/AI_Polish_clean)
 
 It contains human written and AI polished text in different categories, including:
 - STEM (Physics, Math, Computer, Biology, Chemistry, Electrical, Medicine, Statistics)
@@ -114,6 +114,12 @@ human_chemistry = load_dataset("path/to/AITextDetect/AI_Polish_clean/Human/Chemi
 ```
 
 ## Usage
+
+### Load Dataset
+
+An exmaple usage is provided in [`check_dataloader.ipynb`](notebook/check_dataloader.ipynb).
+
+
 To run the benchmark on the `AITextDetect` dataset: 
 
 ```bash
