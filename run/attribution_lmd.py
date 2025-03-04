@@ -1,16 +1,17 @@
-import argparse
 import os
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
+import argparse
 import csv
 
 from mgtbench import AutoDetector, AutoExperiment
 from mgtbench.loading.dataloader import load_attribution
  
-# add more models here
 MODELS = ['Moonshot', 'gpt35', 'Mixtral', 'Llama3', 'gpt-4omini']
 
 
 def train_attribution(model_path, category, epoch, batch_size, save_dir, output_csv):
     data = load_attribution(category)
+    # or: data = load_attribution_topic(category)
 
     # Train model
     model_name_or_path = model_path
@@ -29,7 +30,7 @@ def train_attribution(model_path, category, epoch, batch_size, save_dir, output_
         'save_path': model_save_dir,
         'epochs': epoch,
         'batch_size': batch_size,
-        'disable_tqdm': True
+        'disable_tqdm': False
         }
     res = experiment.launch(**config)
 
