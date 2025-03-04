@@ -518,21 +518,20 @@ def prepare_attribution_topic(topic='STEM', seed=0):
     for detectLLM in MODELS:
         all_data[detectLLM] = []
 
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
-    # repo = "AITextDetect/AI_Polish_clean"
+    repo = "AITextDetect/AI_Polish_clean"
 
     # load all subject data related to the topic
     for model in MODELS:
         for subject in CATEGORIES:
             if TOPIC_MAPPING[subject] != topic:
                 continue
-            mgt_data = load_dataset(repo, trust_remote_code=True, name=model, split=subject, cache_dir='/data1/zzy/cache/huggingface')
+            mgt_data = load_dataset(repo, trust_remote_code=True, name=model, split=subject)
             all_data[model].append(mgt_data)
     
     for subject in CATEGORIES:
         if TOPIC_MAPPING[subject] != topic:
             continue
-        subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject, cache_dir='/data1/zzy/cache/huggingface')
+        subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=subject)
         all_data['human'].append(subject_human_data)
 
     # find the smallest length, balance between subjects
