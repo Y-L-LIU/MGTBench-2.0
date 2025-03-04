@@ -740,18 +740,19 @@ def prepare_incremental(order: list, category='Art', seed=3407):
     return data
 
 
-def load_incremental(order, category):
+def load_incremental(order, category, seed=0):
     seq = ''
     for model_group in order:
         for model in model_group:
             id = LABEL_MAPPING[model]
             seq += str(id)
         seq += '_'
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{category}_incremental_{seq}.json"
-    if not os.path.exists("/data_sda/zhiyuan/data_3407/"):
-        os.makedirs("/data_sda/zhiyuan/data_3407/")
+    seq = seq[:-1]
+    saved_data_path = f"./exp_data/{seed}/{category}_incremental_{seq}.json"
     if not os.path.exists(saved_data_path):
-        data = prepare_incremental(order, category, seed=3407)
+        data = prepare_incremental(order, category, seed=seed)
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path)
         with open(saved_data_path, 'w') as f:
             json.dump(data, f)
     else:
