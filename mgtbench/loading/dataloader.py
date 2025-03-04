@@ -290,7 +290,7 @@ def load_old_data(name, detectLLM):
 
 
 def load_subject_data(detectLLM, category, seed=0):
-    saved_data_path = f"/data_sda/zhiyuan/data_3407/{detectLLM}_{category}.json"
+    saved_data_path = f"./exp_data/{seed}/{detectLLM}_{category}.json"
     if os.path.exists(saved_data_path):
         print('using saved data', saved_data_path)
         with open(saved_data_path, 'r') as f:
@@ -304,13 +304,13 @@ def load_subject_data(detectLLM, category, seed=0):
         return data
 
     print('loading human data')
-    repo = "/data1/zzy/datasets/AI_Polish_clean"
-    # repo = "AITextDetect/AI_Polish_clean"
-    subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=category, cache_dir='/data1/zzy/cache/huggingface')
-
+    
+    repo = 'AITextDetect/AI_Polish_clean'
+    subject_human_data = load_dataset(repo, trust_remote_code=True, name='Human', split=category)
+    
     print('loading machine data')
-    mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=category, cache_dir='/data1/zzy/cache/huggingface')
-
+    mgt_data = load_dataset(repo, trust_remote_code=True, name=detectLLM, split=category)
+    
     print('data loaded')
 
     # data mix up
@@ -348,6 +348,8 @@ def load_subject_data(detectLLM, category, seed=0):
         data_new[data_partition]['label'].append(all_data[index_list[i]]['label'])
 
     if not os.path.exists(saved_data_path):
+        os.makedirs(os.path.dirname(saved_data_path), exist_ok=True)
+        print('saving experiment data to', saved_data_path) 
         with open(saved_data_path, 'w') as f:
             json.dump(data_new, f)
 
