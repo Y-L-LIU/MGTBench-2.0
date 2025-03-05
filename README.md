@@ -21,7 +21,7 @@ Check out [`notebook/detection.ipynb`](notebook/detection.ipynb) for a quick sta
 from mgtbench import AutoDetector, AutoExperiment
 from mgtbench.loading.dataloader import load
 
-model_name_or_path = '/data1/zzy/gpt2-medium'
+model_name_or_path = 'openai-community/gpt2-medium'
 metric = AutoDetector.from_detector_name('ll', 
                                             model_name_or_path=model_name_or_path)
 experiment = AutoExperiment.from_experiment_name('threshold',detector=[metric])
@@ -36,6 +36,7 @@ res = experiment.launch()
 print('train:', res[0].train)
 print('test:', res[0].test)
 ```
+
 ### Dataloader
 
 An exmaple usage is provided in [`check_dataloader.ipynb`](notebook/check_dataloader.ipynb).
@@ -60,6 +61,7 @@ category = 'Art'
 data = load(data_name, detectLLM, category) #2 classes 
 data = load_attribution(data_name, detectLLM) #all classes
 ```
+
 * load by topics (recommended):
 ```python
 from mgtbench.loading.dataloader import load_topic_data, load_attribution_topic
@@ -67,8 +69,8 @@ data = load_topic_data(detectLLM, topic)
 # Humanities Social_sciences
 data = load_attribution_topic('Social_sciences')
 ```
-Additionally, we support loading the data in an incremental way 
 
+Additionally, we support loading the data in an incremental way:
 
 ```python
 # two stages. first stage includes 5 classes (with human) and the second stage incude 1 classes
@@ -77,7 +79,6 @@ order = [['gpt35', 'Mixtral','Moonshot','Llama3',],['gpt-4omini']]
 order = [['Moonshot'],['Mixtral'],['gpt35'],['Llama3'],['gpt-4omini']]
 from mgtbench.loading import load_incremental_topic, load_incremental
 data = load_incremental_topic(order, "Social_sciences")
-
 ```
 
 ## Supported Methods
@@ -114,42 +115,11 @@ It contains human written and AI polished text in different categories, includin
 From [wiki](https://en.wikipedia.org/wiki/Main_Page), [arxiv](https://arxiv.org/), and [Gutenberg](https://www.gutenberg.org/)
 
 
-
 ## Usage
 
+Checkout the [run](run) folder for more examples.
 
-To run the benchmark on the `AITextDetect` dataset: 
-
-```bash
-# specify the model with local path to your model, or model name on huggingface
-
-# distinguish Human vs. Llama3 using LM-D detector
-python benchmark.py --detectLLM Llama3\
-                    --method LM-D\
-                    --model /path/to/distilbert-base-uncased\
-                    --epochs 1 \
-                    --batch_size 64 \
-                    --lr 5e-6  
-
-
-# distinguish Human vs. gpt3.5 using log-likelihood detector
-python benchmark.py --detectLLM gpt35 --method ll --model /path/to/gpt2-medium
-```
-
-To run model attribution on the `AITextDetect` dataset:
-```bash
-# distinguish Human, Moonshot, gpt3.5, Mixtral, Llama3 using LM-D detector
-
-python attribution_train_all.py \
-    --model_save_dir /data1/model_attribution \ # path to save the models
-    --output_csv attribution_results_new.csv && \ 
-python attribution_eval_all.py \
-    --result_csv eval_result.csv 
-```
-
-Produces a `attribution_results_new.csv` file with all results and a `eval_result.csv` file with the highest F1 score for each category. The `figure` folder contains the confusion matrix for each category.
-
-Note that you can also specify your own datasets on ``dataloader.py``.
+Note that you can also specify your own datasets in ``dataloader.py``.
 
 ## Cite
 If you find this repo and dataset useful, please consider cite our work
