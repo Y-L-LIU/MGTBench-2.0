@@ -8,11 +8,14 @@ It is still under continuous development and we will include more detection meth
 ## Quick Start
 
 ### Installation
-```
-git clone -b release https://github.com/Y-L-LIU/MGTBench-2.0
+```bash
+git clone https://github.com/Y-L-LIU/MGTBench-2.0
 cd MGTBench-2.0
-conda env create -f environment.yml;
+conda env create -f mgtbench2.yml;
 conda activate mgtbench2;
+# you may need mirror for faster installation
+pip config set global.index-url https://mirrors.cloud.tencent.com/pypi/simple
+pip install -r requirements.txt
 ```
 
 
