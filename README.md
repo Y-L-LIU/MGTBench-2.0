@@ -1,7 +1,6 @@
 # MGTBench 2.0:Rethinking the Machine-Generated Text Detection
 
-MGTBench2.0 provides the reference implementations of different machine-generated text (MGT) detection methods.
-It is still under continuous development and we will include more detection methods as well as analysis tools in the future.
+Official Repo for [On the Generalization and Adaptation Ability of Machine-Generated Text Detectors in Academic Writing](https://arxiv.org/pdf/2412.17242)
 ![overview](https://github.com/user-attachments/assets/d8a0d4f7-79ad-4425-a3ee-65b0132e591b)
 
 
